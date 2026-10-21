@@ -1,0 +1,33 @@
+
+# Dependencias de Node.js
+node_modules/
+**/node_modules/
+
+# Variables de entorno y contraseñas
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Archivos compilados
+dist/
+build/
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Archivos de Windows
+Thumbs.db
+Desktop.ini
+
+# Configuraciones locales
+.vscode/
+*.local
+
+# Copias de seguridad
+*.bak
+*.backup
