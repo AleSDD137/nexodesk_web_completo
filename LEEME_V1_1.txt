@@ -1,0 +1,25 @@
+NEXODESK V1.1 — PARCHE (solo archivos modificados)
+
+BASE REQUERIDA: nexodesk_web_completo.zip de la entrega anterior.
+
+1. Descomprimí este parche.
+2. Copiá dashboard.html dentro de tu carpeta nexodesk, reemplazando el anterior.
+3. Copiá js/app.js dentro de nexodesk/js, reemplazando el anterior.
+4. Copiá css/styles.css dentro de nexodesk/css, reemplazando el anterior.
+5. NO reemplaces index.html, login.html ni sus archivos CSS/JS: no cambiaron.
+6. Abrí index.html con Live Server en Visual Studio Code.
+
+NOVEDADES
+- Detalles editables y comentarios en cada ticket.
+- Arrastrar y soltar tickets entre columnas Kanban.
+- Tabla de tickets con acceso a detalles y cambio de estado.
+- Métricas dinámicas y gráfico de barras por prioridad.
+- Directorio de usuarios demo, con altas y activación/desactivación.
+- Configuración de vista compacta y mensajes visuales.
+- Exportación de tickets a JSON.
+
+NOTAS
+- Los datos se guardan únicamente en localStorage de este navegador.
+- El login sigue siendo de demostración, sin backend ni autenticación real.
+- No ingresar contraseñas ni datos personales reales.
+- Este parche no fue probado en un navegador; sí se validó la sintaxis JavaScript.

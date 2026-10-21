@@ -1,0 +1,8 @@
+/* V2.2 - Pantallas con origen explícito y entrada validada. */
+body.nx-auth-pending .app-shell{visibility:hidden}
+.nx-auth-note{padding:9px 17px;margin:5px 0 16px;border:1px solid #cde8ee;border-radius:9px;background:#effbfc;color:#24576a;font-size:12px;line-height:1.5}
+.nx-login-mode{display:block;width:100%;height:45px;border:1px solid #dfe6ed;border-radius:8px;padding:0 11px;background:#fff;color:#26374c;font:12px 'DM Sans',sans-serif}
+.nx-mode-note{font-size:11px;color:#64778b;line-height:1.6;margin:8px 0 16px}
+.nav-item[hidden]{display:none!important}
+button[hidden]{display:none!important}
+.nx-sync[data-state="error"]{outline:2px solid #e26b6b}

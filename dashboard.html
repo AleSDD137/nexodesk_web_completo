@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="NEXODESK - Sistema de Gestión de Tickets para Soporte IT" />
+  <title>NEXODESK | Gestión de tickets IT</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/v12.css" />
+  <link rel="stylesheet" href="css/v13.css" />
+  <link rel="stylesheet" href="css/v14.css" />
+  <link rel="stylesheet" href="css/v15.css" />
+  <link rel="stylesheet" href="css/v21.css" /><link rel="stylesheet" href="css/v22.css" /><link rel="stylesheet" href="css/v23.css" />
+</head>
+<body class="nx-auth-pending">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html" aria-label="NEXODESK inicio">
+        <span class="brand-mark">N</span>
+        <span><strong>NEXO<span>DESK</span></strong><small>CONECTA. GESTIONA. RESUELVE.</small></span>
+      </a>
+      <nav class="main-nav" aria-label="Navegación principal">
+        <button class="nav-item active" data-view="dashboard"><span>▦</span> Dashboard</button>
+        <button class="nav-item" data-view="pulse"><span>◉</span> Pulse</button>
+        <button class="nav-item" data-view="assets"><span>▣</span> Assets</button>
+        <button class="nav-item" data-view="relaciones"><span>⤳</span> Relaciones IT</button>
+        <button class="nav-item" data-view="intelligence"><span>✧</span> Intelligence</button>
+        <button class="nav-item" data-view="triage"><span>◇</span> Triage L1–L3</button>
+        <button class="nav-item" data-view="portal"><span>⌂</span> Portal</button>
+        <button class="nav-item" data-view="tickets"><span>▤</span> Tickets</button>
+        <button class="nav-item" data-view="procesos"><span>☷</span> Procesos</button>
+        <button class="nav-item" data-view="reportes"><span>▥</span> Reportes</button>
+        <button class="nav-item" data-view="usuarios"><span>♙</span> Usuarios</button>
+        <button class="nav-item" data-view="configuracion"><span>⚙</span> Configuración</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="avatar">AD</div>
+        <div><strong id="profileName">Usuario demo</strong><small id="profileRole">Sesión de demostración</small></div>
+        <button class="icon-button" title="Opciones de perfil">⋯</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div class="mobile-brand">NEXO<span>DESK</span></div>
+        <label class="search-box"><span>⌕</span><input id="searchInput" type="search" placeholder="Buscar tickets, usuarios..." /></label>
+        <div class="top-actions"><span class="connection"><i></i> Sistema operativo</span><button class="icon-button" aria-label="Notificaciones">♧<b class="notification-dot"></b></button><div class="avatar small-avatar" id="profileAvatar">UD</div><a class="logout-link" id="logoutButton" href="login.html">Salir ↗</a></div>
+      </header>
+
+      <section class="page-heading">
+        <div><p class="eyebrow">CENTRO DE OPERACIONES</p><h1 id="pageTitle">Panel de tickets</h1><p class="muted">Seguimiento de incidentes y requerimientos de soporte IT.</p></div>
+        <button class="primary-button" id="newTicketButton"><span>＋</span> Nuevo ticket</button>
+      </section>
+
+      <p id="nxAuthNote" class="nx-auth-note" role="status"></p><section class="nx-sync" aria-label="Origen de datos NEXODESK"><div><strong>Origen de tickets</strong><p id="nxSyncStatus" role="status" aria-live="polite">Modo demo: datos de este navegador.</p></div><div class="nx-sync-controls"><label for="nxDataMode">Modo</label><select id="nxDataMode"><option value="demo">Demo local</option><option value="api">API + PostgreSQL</option></select><button type="button" id="nxRefresh" class="secondary-button">Actualizar</button></div></section>
+
+      <section class="stats-grid" aria-label="Indicadores principales">
+        <article class="stat-card"><div class="stat-top"><span>Tickets activos</span><span class="stat-icon cyan">▤</span></div><strong id="activeCount">48</strong><small><span class="positive">↗ 8%</span> respecto a la semana anterior</small></article>
+        <article class="stat-card"><div class="stat-top"><span>Tiempo promedio de resolución</span><span class="stat-icon purple">◷</span></div><strong>2,5 <em>días</em></strong><small>Objetivo de servicio: 3 días</small></article>
+        <article class="stat-card"><div class="stat-top"><span>Calidad del servicio</span><span class="stat-icon green">☆</span></div><strong>80<em>%</em></strong><small><span class="positive">CSAT</span> · satisfacción del usuario</small></article>
+        <article class="stat-card"><div class="stat-top"><span>Tickets sin asignar</span><span class="stat-icon orange">!</span></div><strong id="unassignedCount">6</strong><small>Requieren revisión del coordinador</small></article>
+      </section>
+
+      <section class="board-section" id="boardSection">
+        <div class="section-heading"><div><h2>Flujo de trabajo</h2><p class="muted">Vista general del ciclo de vida del ticket</p></div>
+          <div class="board-tools"><select id="priorityFilter" aria-label="Filtrar por prioridad"><option value="all">Todas las prioridades</option><option value="Alta">Prioridad alta</option><option value="Media">Prioridad media</option><option value="Baja">Prioridad baja</option></select><button class="secondary-button" id="resetButton">Restablecer demo</button></div>
+        </div>
+        <p class="muted" style="margin:0 0 12px">Arrastrá las tarjetas entre columnas para cambiar su estado.</p><div class="kanban-board" id="kanbanBoard"></div>
+      </section>
+      <section class="alternate-view hidden" id="alternateView"></section>
+      <footer class="footer"><span>© 2026 NEXODESK · Proyecto de tesis</span><span>Demo local o datos de PostgreSQL según el modo elegido</span></footer>
+    </main>
+  </div>
+
+  <dialog id="ticketDialog" class="ticket-dialog">
+    <form id="ticketForm">
+      <div class="dialog-heading"><div><p class="eyebrow">GESTIÓN DE SOLICITUDES</p><h2>Crear nuevo ticket</h2></div><button type="button" class="icon-button" id="closeDialog" aria-label="Cerrar">✕</button></div>
+      <label>Título del ticket<input name="title" required maxlength="100" placeholder="Ej. No puedo acceder al sistema ERP" /></label>
+      <div class="form-row"><label>Tipo<select name="type"><option>Incidente</option><option>Requerimiento</option><option>Consulta</option></select></label><label>Prioridad<select name="priority"><option>Media</option><option>Alta</option><option>Baja</option></select></label></div>
+      <label>Descripción<textarea name="description" required rows="3" placeholder="Describe el problema o solicitud..."></textarea></label>
+      <div class="form-row"><label>Solicitante<input name="requester" required placeholder="Nombre del usuario" /></label><label>Técnico asignado<select name="assignee"><option value="Sin asignar">Sin asignar</option><option>A. Sebastián Díaz</option><option>C. Vargas</option><option>M. Fernández</option></select></label></div>
+      <p class="form-note">Los tickets se guardan en el origen seleccionado arriba. En modo API necesitás PostgreSQL y el backend encendidos.</p>
+      <div class="dialog-actions"><button type="button" class="secondary-button" id="cancelDialog">Cancelar</button><button class="primary-button" type="submit">Crear ticket</button></div>
+    </form>
+  </dialog>
+  <dialog id="detailDialog" class="ticket-dialog detail-dialog"><div id="detailContent"></div><div class="dialog-actions"><button type="button" class="secondary-button" id="closeDetail">Cerrar</button></div></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="js/v12.js"></script>
+  <script src="js/v13.js"></script>
+  <script src="js/v14.js"></script>
+  <script src="js/v15.js"></script>
+  <script src="js/v22-auth.js"></script><script src="js/v21-bridge.js"></script>
+  <script src="js/v23.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
