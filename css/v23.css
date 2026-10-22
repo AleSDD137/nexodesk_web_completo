@@ -8,3 +8,84 @@
 @media(max-width:840px){.nx23-layout{grid-template-columns:1fr}.nx23-form{grid-template-columns:1fr}.nx23-metrics{grid-template-columns:1fr}.nx23-hero h2{font-size:21px}}
 
 .nx23-request-detail{margin-top:14px;padding:14px;background:rgba(20,165,181,.07);border:1px solid #b9dadf;border-radius:10px;white-space:pre-wrap;overflow-wrap:anywhere}.nx23-request-detail h4{margin:0 0 8px}
+
+/* Triage usa tarjetas claras: limitar la paleta a su contenedor evita heredar
+   --text del tema oscuro sin cambiar Assets, Portal ni los estilos globales. */
+.nx23-layout {
+  --surface: #fff;
+  --text: #122338;
+  --text-muted: #46596d;
+  color: var(--text);
+  color-scheme: light;
+}
+
+.nx23-layout :is(.nx23-ticket small, .nx23-history li small) {
+  color: var(--text-muted);
+}
+
+.nx23-layout :is(input:not([type="checkbox"]), select, textarea) {
+  border-color: #748b9d;
+}
+
+.nx23-layout :is(input, textarea)::placeholder {
+  color: #526477;
+  opacity: 1;
+}
+
+.nx23-layout select option {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.nx23-layout select option:disabled {
+  color: #526477;
+}
+
+.nx23-layout input[type="checkbox"] {
+  accent-color: #066873;
+}
+
+.nx23-layout :is(input, select, textarea):enabled:hover {
+  border-color: #066873;
+}
+
+.nx23-layout .nx23-ticket.chosen {
+  background: #e4f3f4;
+  border-color: #066873;
+}
+
+.nx23-layout .nx23-ticket:enabled:hover {
+  background: #edf7f7;
+  border-color: #066873;
+}
+
+.nx23-layout .nx23-link {
+  color: #066873;
+}
+
+.nx23-layout .nx23-link:enabled:hover {
+  color: #034852;
+}
+
+.nx23-layout .nx23-primary:enabled:hover {
+  background: #39cad0;
+  border-color: #066873;
+}
+
+.nx23-layout :is(input, select, textarea, button):focus-visible {
+  outline: 2px solid #066873;
+  outline-offset: 3px;
+}
+
+/* Colores opacos para mantener legibilidad durante el guardado. */
+.nx23-layout :is(input, select, textarea, button):disabled {
+  background: #e8eff3;
+  color: #46596d;
+  border-color: #748b9d;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.nx23-layout .nx23-primary:disabled {
+  cursor: wait;
+}
