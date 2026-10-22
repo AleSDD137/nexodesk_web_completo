@@ -1,0 +1,97 @@
+/* Assets y Portal comparten las superficies de V1.2 en ambos modos.
+   El alcance explícito protege Pulse, Triage y las demás vistas. */
+.nx-workspace,
+.nx-module-dialog {
+  color: #e8f4fa;
+  color-scheme: dark;
+  min-width: 0;
+}
+.nx-workspace :is(h2,h3,h4),
+.nx-module-dialog :is(h2,h3,h4) { color: #f3faff; }
+.nx-workspace :is(.nx-hint,.nx-sub,.nx-empty,.nx-guide small,.nx-panel-head > span),
+.nx-module-dialog :is(.nx-hint,.nx-form-feedback) { color: #aec4d3; }
+.nx-workspace .nx-table th { color: #aec4d3; }
+.nx-workspace .nx-table td { color: #e8f4fa; }
+.nx-workspace :is(input,select,textarea),
+.nx-module-dialog :is(input,select,textarea) {
+  min-width: 0;
+  max-width: 100%;
+  background: #0c1929;
+  color: #f0f7fb;
+  border-color: #648497;
+}
+.nx-workspace :is(input,textarea)::placeholder,
+.nx-module-dialog :is(input,textarea)::placeholder { color: #aac0cf; opacity: 1; }
+.nx-workspace select option,
+.nx-module-dialog select option { background: #0c1929; color: #f0f7fb; }
+.nx-workspace :is(input,select,textarea):enabled:hover,
+.nx-module-dialog :is(input,select,textarea):enabled:hover { border-color: #59ded5; }
+.nx-workspace :is(input,select,textarea,button,a):focus-visible,
+.nx-module-dialog :is(input,select,textarea,button,a):focus-visible { outline: 2px solid #59ded5; outline-offset: 3px; }
+.nx-workspace :is(.nx-cta,.nx-mini-btn,.nx-guide):enabled:hover,
+.nx-module-dialog :is(.nx-cta,.nx-mini-btn):enabled:hover { border-color: #59ded5; }
+.nx-workspace .nx-text-btn { color: #7ce8e6; }
+.nx-workspace .nx-text-btn:enabled:hover { color: #c9fffc; }
+.nx-workspace :is(input,select,textarea,button):disabled,
+.nx-module-dialog :is(input,select,textarea,button):disabled {
+  background: #244152;
+  color: #c0d4df;
+  border-color: #648497;
+  opacity: 1;
+  cursor: not-allowed;
+}
+.nx-workspace textarea,
+.nx-module-dialog textarea { resize: vertical; }
+.nx-workspace :is(.nx-hero,.nx-panel,.nx-metrics),
+.nx-module-dialog { overflow-wrap: anywhere; }
+.nx-workspace .nx-metrics,
+.nx-workspace .nx-guide-grid,
+.nx-workspace .nx-two-col { min-width: 0; }
+.nx-workspace .nx-panel-head { flex-wrap: wrap; }
+.nx-workspace .nx-search { min-width: min(220px,100%); }
+.nx-workspace .nx-form label { min-width: 0; }
+.nx-workspace .nx-form-feedback { color: #a1f0d8; }
+.nx-workspace .nx-form-feedback[data-state="error"] { color: #ffd4dc; }
+.nx-workspace .nx-lookup .nx-mini-btn { flex-shrink: 0; white-space: nowrap; }
+.nx-workspace .nx-lookup input { flex: 1 1 130px; width: 0; }
+.nx-workspace .nx-assets-scope { caption-side: bottom; text-align: left; padding-top: 12px; font-size: 12px; color: #aec4d3; }
+.nx-portal-workspace > .nx-panel { margin-bottom: 16px; }
+.nx-workspace .nx-table-wrap:focus-visible { outline: 2px solid #59ded5; outline-offset: 3px; }
+.nx-workspace .nx-request-description { white-space: pre-wrap; overflow-wrap: anywhere; }
+.nx-workspace .nx-module-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.nx-module-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #416476;
+  border-radius: 10px;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  background: #193644;
+  color: #d7efed;
+  line-height: 1.6;
+  font-size: 12px;
+}
+.nx-module-status[data-state="error"] { background: #402a36; color: #ffd4dc; border-color: #b67786; }
+.nx-module-status[data-state="pending"] { background: #303c36; color: #f5e8bb; border-color: #9e925e; }
+.nx-module-dialog {
+  width: min(620px,calc(100% - 32px));
+  max-height: 90vh;
+  padding: 24px;
+  border: 1px solid #527b8f;
+  border-radius: 16px;
+  background: #14263a;
+  overflow-y: auto;
+}
+.nx-module-dialog::backdrop { background: #020812c9; }
+.nx-module-dialog .nx-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.nx-module-dialog .nx-modal-actions { display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .app-shell:has(.alternate-view:not(.hidden) .nx-workspace) { grid-template-columns: minmax(0,1fr); }
+}
+@media (max-width: 620px) {
+  .nx-module-status { align-items: flex-start; flex-direction: column; }
+  .nx-workspace .nx-lookup input { flex: 1 1 130px; width: 100%; }
+  .nx-workspace .nx-cta { white-space: normal; }
+}
