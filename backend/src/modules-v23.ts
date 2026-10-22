@@ -75,7 +75,16 @@ export function registerV23Routes(app:Express):void {
       WHERE active=true AND role IN ('Administrador','Coordinador','Técnico') ORDER BY name LIMIT 200`);
     res.json({data:rows});
   }));
-  app.get('/api/triage/summary',requireAuth,requireRole(...STAFF),route(async(_req,res)=>{
+  app.get('/api/triage/summary',requireAuth,requireRole(...STAFF),route(async(req,res)=>{
+    // Índice acotado a la bandeja cargada: niveles y filtro sin triage sin N+1.
+    if(req.query.ticketIds !== undefined){
+      const raw=z.string().max(3400).regex(/^\d+(,\d+)*$/).parse(req.query.ticketIds);
+      const ids=z.array(z.coerce.number().int().positive().safe()).max(200).parse(raw.split(','));
+      const {rows}=await pool.query(`SELECT ticket_id AS "ticketId",level FROM triage_cases
+        WHERE ticket_id=ANY($1::bigint[])`,[ids]);
+      res.json({data:{reviewed:rows.length,escalated:rows.filter(r=>r.level>1).length,cases:rows}});
+      return;
+    }
     const {rows}=await pool.query(`SELECT count(*)::int AS reviewed,
       count(*) FILTER(WHERE level>1)::int AS escalated FROM triage_cases`);
     res.json({data:rows[0]});
