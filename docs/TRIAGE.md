@@ -1,6 +1,6 @@
 # Triage L1–L3: interfaz compartida
 
-La vista de `js/v15.js` es la única interfaz de Triage para Demo Local y API + PostgreSQL. Conserva el diseño oscuro de la demo: estadísticas, bandeja con búsqueda y filtros, expediente, diagnóstico, pruebas, guías, transferencia manual e historial. `css/v15.css` contiene sus estilos. Assets y Portal tienen también vistas compartidas, descritas en `ASSETS_PORTAL.md`; `v23.js` conserva los metadatos de versión.
+La vista de `js/v15.js` es la única interfaz de Triage para Demo Local y API + PostgreSQL. Conserva el diseño oscuro de la demo: estadísticas, bandeja con búsqueda y filtros, expediente, diagnóstico, pruebas, guías, transferencia manual e historial. `css/v15.css` contiene sus estilos. Assets y Portal tienen también vistas compartidas, descritas en `ASSETS_PORTAL.md`; el dashboard ya no carga el antiguo `v23.js`.
 
 ## Decisiones de implementación
 

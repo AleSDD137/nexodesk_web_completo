@@ -1,5 +1,7 @@
 # NEXODESK V2.3 — Assets, Triage y Portal con PostgreSQL
 
+> **Repositorio actual:** Assets y Portal utilizan `js/assets-ui.js`, `js/portal-ui.js`, `js/modules-data.js` y `css/modules.css` en ambos modos. `js/v23.js` y `css/v23.css` fueron retirados. Consultá [la arquitectura y las pruebas actuales](docs/ASSETS_PORTAL.md). Las instrucciones de copia de ZIP y la tabla siguientes describen el paquete V2.3 original; no vuelvas a superponer esos archivos antiguos sobre el checkout actualizado.
+
 **Esta entrega es un parche incremental sobre V2.2.** Contiene únicamente archivos nuevos o modificados; no reemplaza el proyecto completo. El modo **Demo local** sigue funcionando sin configurar el backend.
 
 ## 1. Archivos que incorpora

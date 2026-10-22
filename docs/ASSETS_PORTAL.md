@@ -1,6 +1,6 @@
 # Assets y Portal: vistas compartidas
 
-Los modos Demo local y API + PostgreSQL utilizan la misma estructura visual oscura en cada módulo. Se reutilizan las superficies de `css/v12.css`, con ajustes encapsulados en `.nx-workspace` y `.nx-module-dialog` dentro de `css/modules.css`. Se retiraron los renderizadores duplicados y su hoja `css/v23.css`.
+Los modos Demo local y API + PostgreSQL utilizan la misma estructura visual oscura en cada módulo. Se reutilizan las superficies de `css/v12.css`, con ajustes encapsulados en `.nx-workspace` y `.nx-module-dialog` dentro de `css/modules.css`. Se retiraron el antiguo punto de entrada `js/v23.js`, sus renderizadores duplicados y su hoja `css/v23.css`; el dashboard carga directamente las vistas compartidas.
 
 ## Organización y decisiones
 
@@ -15,6 +15,18 @@ Los modos Demo local y API + PostgreSQL utilizan la misma estructura visual oscu
 - No hay cambios en backend, permisos, migraciones, dependencias ni lockfiles.
 
 ## Verificación
+
+La comprobación de entrega encontró que `main` en GitHub seguía en `f1c699a`, con el renderizador alternativo de `v23.js`; el cambio anterior de Assets/Portal (`1e6dd63`) solo estaba en su rama. Esta corrección parte de ese `main` e incorpora la unificación en `fix/assets-portal-api-ui`. Hasta integrar el PR, actualizar únicamente `main` seguirá entregando la versión anterior.
+
+Para verificar también el HTML servido, el orden de carga y la apariencia en un navegador:
+
+```sh
+python3 -m pip install -r tests/requirements-browser.txt
+python3 -m playwright install chromium
+python3 -m unittest discover -s tests -p 'test_modules_ui.py' -v
+```
+
+`tests/test_modules_ui.py` sirve la aplicación y abre Chromium con respuestas API controladas. Compara estructura, estadísticas y centro de ayuda entre modos, exige superficies oscuras y contraste de texto de al menos 4,5:1, comprueba el ancho móvil y falla ante errores JavaScript o recursos faltantes. `NEXODESK_SCREENSHOTS=/ruta/fuera/del/repositorio` guarda ocho capturas (dos módulos, dos modos, escritorio/móvil). La prueba falla contra el `main` anterior y pasa con esta corrección. Estas respuestas simuladas no prueban persistencia; esa parte se comprobó aparte contra PostgreSQL real.
 
 Desde la raíz:
 
