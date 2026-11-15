@@ -68,6 +68,9 @@
         return {items:result.data,limit:result.limit ?? 100};
       },
       async get(id) { return (await api(`/portal/requests/${Number(id)}`)).data; },
+      async addComment(id,text) {
+        return (await api(`/tickets/${Number(id)}/comments`,{method:'POST',body:JSON.stringify({text})})).data;
+      },
       async create(form) {
         // Identidad, prioridad, estado y origen los determina el servidor.
         const body = {type:form.type,title:form.title,description:form.description};

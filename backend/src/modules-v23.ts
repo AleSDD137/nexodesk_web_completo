@@ -5,6 +5,7 @@ import type { Express, Request, Response, RequestHandler } from 'express';
 import { z } from 'zod';
 import { pool } from './db.js';
 import { requireAuth, requireRole, STAFF } from './auth.js';
+import { requestFields, requestView } from './portal-response.js';
 
 const route = (fn:(req:Request,res:Response)=>Promise<void>):RequestHandler =>
   (req,res,next)=>{Promise.resolve(fn(req,res)).catch(next);};
@@ -155,6 +156,9 @@ export function registerV23Routes(app:Express):void {
     res.json({data:rows,limit:100});
   }));
   app.post('/api/portal/requests',requireAuth,route(async(req,res)=>{
+    if(req.currentUser!.role==='Solicitante' && Object.keys(req.body??{}).some(k=>!['title','description','type'].includes(k))){
+      res.status(403).json({error:'Solo podés enviar tipo, asunto y descripción. La identidad y los campos de gestión los establece el servidor.'});return;
+    }
     const t=portalCreate.parse(req.body);const self=req.currentUser!;
     const {rows}=await pool.query(`INSERT INTO tickets(title,description,type,priority,status,requester,
       requester_email,assignee,comments,source) VALUES($1,$2,$3,'Media','Registrado',$4,$5,
@@ -164,9 +168,9 @@ export function registerV23Routes(app:Express):void {
   }));
   app.get('/api/portal/requests/:id',requireAuth,route(async(req,res)=>{
     const id=idParam(req.params.id);
-    const {rows}=await pool.query(`SELECT id,title,type,priority,status,description,created_at AS "createdAt"
+    const {rows}=await pool.query(`SELECT ${requestFields}
       FROM tickets WHERE id=$1 AND requester_email=$2`,[id,req.currentUser!.email]);
-    if(!rows.length){res.status(404).json({error:'Solicitud no encontrada o sin permiso'});return;}
-    res.json({data:rows[0]});
+    if(!rows.length){res.status(req.currentUser!.role==='Solicitante'?403:404).json({error:'Solicitud no disponible para esta cuenta'});return;}
+    res.json({data:requestView(rows[0])});
   }));
 }

@@ -20,6 +20,7 @@
       const result=await response.json().catch(()=>({}));
       if(!response.ok){
         const err=new Error(result.error||`Error HTTP ${response.status}`);
+        if(response.status===401 && currentMode==='api' && location.pathname.endsWith('/dashboard.html'))location.replace('login.html?expired=1');
         err.status=response.status;throw err;
       }
       return result;
@@ -54,16 +55,34 @@
     } catch {}
     location.replace('login.html');return false;
   }
-  function useSource(next){source=next;applyAccess();}
+  function useSource(next){source=isSelfService()?'api':next;applyAccess();}
+  // La experiencia depende de la sesión validada, no de controles del DOM ni
+  // de una preferencia Demo que pueda quedar de un acceso anterior.
+  function isSelfService(){return currentMode==='api' && user?.role==='Solicitante';}
+  function canAccessView(view){
+    if(isSelfService())return ['portal','cuenta'].includes(view);
+    if(source!=='api')return true;
+    return !limitedViews.includes(view) && (view!=='usuarios'||['Administrador','Coordinador'].includes(user?.role));
+  }
   function isRequester(){return source==='api' && user?.role==='Solicitante';}
   function canEdit(){return source!=='api'||(user && user.role!=='Solicitante');}
   function applyAccess(){
-    document.querySelectorAll('.nav-item').forEach(b=>{
-      const restricted=limitedViews.includes(b.dataset.view) ||
-        (['assets','triage'].includes(b.dataset.view) && user?.role==='Solicitante') ||
-        (b.dataset.view==='usuarios'&&!['Administrador','Coordinador'].includes(user?.role));
-      b.hidden=source==='api'&&restricted;
-    });
+    const selfService=isSelfService();
+    document.body.classList.toggle('nx-requester',selfService);
+    document.querySelector('#requesterNav')?.toggleAttribute('hidden',!selfService);
+    document.querySelector('#staffNav')?.toggleAttribute('hidden',selfService);
+    document.querySelectorAll('.nav-item[data-view]').forEach(b=>{b.hidden=!canAccessView(b.dataset.view);});
+    document.querySelector('.nx-sync-controls')?.toggleAttribute('hidden',selfService);
+    const syncTitle=document.querySelector('.nx-sync > div > strong');
+    if(syncTitle)syncTitle.textContent=selfService?'Conexión de tu Portal':'Origen de tickets';
+    document.querySelector('.search-box')?.toggleAttribute('hidden',selfService);
+    document.querySelector('[aria-label="Notificaciones"]')?.toggleAttribute('hidden',selfService);
+    const heading=document.querySelector('.page-heading .eyebrow');
+    if(heading)heading.textContent=selfService?'PORTAL DE AUTOSERVICIO':'CENTRO DE OPERACIONES';
+    const create=document.querySelector('#newTicketButton');
+    if(create)create.innerHTML=selfService?'<span>＋</span> Crear solicitud':'<span>＋</span> Nuevo ticket';
+    const brand=document.querySelector('.sidebar .brand');
+    if(brand)brand.href=selfService?'dashboard.html#portal':'index.html';
     const button=document.querySelector('#resetButton');if(button)button.disabled=source==='api';
     const requester=isRequester();
     const requesterInput=document.querySelector('#ticketForm [name="requester"]');
@@ -73,7 +92,9 @@
     if(assignee)assignee.disabled=requester;
     if(priority)priority.disabled=requester;
     const warning=document.querySelector('#nxAuthNote');
-    if(warning)warning.textContent=source==='api'
+    if(warning)warning.textContent=selfService
+      ? `Hola, ${user.name}. Registrá solicitudes y consultá su estado desde tu Portal. Tu sesión identifica cada solicitud.`
+      : source==='api'
       ? `Sesión real: ${user?.name||'usuario'} · ${user?.role||''}${user?.supportLevel?' L'+user.supportLevel:''}. Tickets, Assets, Triage y Portal utilizan PostgreSQL; Pulse, Relaciones e Intelligence siguen en demo local.`
       : 'Demo: cualquier correo válido (sin autenticación). La información se guarda solo en este navegador.';
     if(user && source==='api'){
@@ -94,6 +115,11 @@
   function renderPasswordPanel(root){
     if(source!=='api')return;
     root.insertAdjacentHTML('beforeend',`<form id="nxPasswordForm" class="inline-form"><h3>Cambiar contraseña de mi cuenta</h3><p class="muted">Usá al menos 12 caracteres. El cambio cierra las demás sesiones de esta cuenta.</p><div class="detail-grid"><label>Contraseña actual<input name="currentPassword" type="password" autocomplete="current-password" required></label><label>Nueva contraseña<input name="newPassword" type="password" minlength="12" autocomplete="new-password" required></label></div><button type="submit" class="primary-button">Cambiar contraseña</button><p id="nxPasswordFeedback" role="status"></p></form>`);
+  }
+  function renderAccount(root){
+    if(!isSelfService())return;
+    root.innerHTML=`<div class="nx-workspace nx-account-workspace"><section class="nx-panel"><h2>Mi cuenta</h2><p class="nx-hint">Datos de la cuenta que identifica tus solicitudes.</p><dl class="nx-account-details"><dt>Nombre</dt><dd>${safe(user.name)}</dd><dt>Correo</dt><dd>${safe(user.email)}</dd><dt>Rol</dt><dd>Solicitante</dd></dl></section></div>`;
+    renderPasswordPanel(root.firstElementChild);
   }
   const passwordDialog=document.createElement('dialog');passwordDialog.className='ticket-dialog nx-reset-dialog';
   passwordDialog.innerHTML=`<form id="nxAdminResetForm"><h3>Establecer contraseña de usuario</h3><p class="muted" id="nxResetWho"></p><label>Nueva contraseña (mínimo 12 caracteres)<input name="password" type="password" autocomplete="new-password" minlength="12" required></label><p role="status" id="nxResetFeedback"></p><div class="dialog-actions"><button type="button" class="secondary-button" id="nxCloseReset">Cancelar</button><button class="primary-button" type="submit">Guardar contraseña</button></div></form>`;
@@ -133,6 +159,6 @@
     try {await api('/users/'+id,{method:'PATCH',body:JSON.stringify({active:!active})});renderUsers(document.querySelector('#alternateView'));}
     catch(err){alert(err.message);}
   });
-  window.NexoAuth={api,login,logout,ensure,applyAccess,useSource,isRequester,canEdit,renderUsers,renderPasswordPanel,
+  window.NexoAuth={api,login,logout,ensure,applyAccess,useSource,isRequester,isSelfService,canAccessView,canEdit,renderUsers,renderPasswordPanel,renderAccount,
     get user(){return user;},get source(){return source;},get sessionMode(){return currentMode;},setDemo(){currentMode='demo';sessionStorage.setItem(ACCESS_KEY,'demo');}};
 })();
