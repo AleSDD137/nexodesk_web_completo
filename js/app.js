@@ -75,6 +75,7 @@ if (logoutButton) logoutButton.addEventListener('click', event => {
   event.preventDefault(); void window.NexoAuth.logout();
 });
 let toastTimeout;
+const publicCommentWrites = new Map();
 
 function loadTickets() {
   try {
@@ -192,7 +193,12 @@ function openTicket(id) {
   }
   const ticket=tickets.find(item=>item.id===Number(id)); if(!ticket)return;
   const readOnly=window.NexoBridge?.isServer() && window.NexoAuth.isRequester();
+  const apiComments=window.NexoBridge?.isServer();
+  const commentKey=`${window.NexoAuth.user?.id || 'demo'}:${ticket.id}`;
+  if(!publicCommentWrites.has(commentKey))publicCommentWrites.set(commentKey,{busy:false,text:'',error:'',notice:''});
+  const commentState=publicCommentWrites.get(commentKey);
   const detail=document.querySelector("#detailContent");
+  detail.dataset.ticketId=String(ticket.id);
   detail.innerHTML=`<div class="dialog-heading"><div><p class="eyebrow">TICKET #${ticket.id}</p><h2>${escapeHtml(ticket.title)}</h2></div></div>
     <div class="detail-grid"><label>Estado<select id="detailStatus">${columns.map(c=>`<option ${c.key===ticket.status?"selected":""}>${escapeHtml(c.key)}</option>`).join("")}</select></label>
     <label>Prioridad<select id="detailPriority">${["Alta","Media","Baja"].map(x=>`<option ${x===ticket.priority?"selected":""}>${x}</option>`).join("")}</select></label>
@@ -200,9 +206,9 @@ function openTicket(id) {
     <label>Tipo<select id="detailType">${["Incidente","Requerimiento","Consulta"].map(x=>`<option ${x===ticket.type?"selected":""}>${x}</option>`).join("")}</select></label></div>
     <label>Solicitante<input id="detailRequester" maxlength="100" value="${escapeHtml(ticket.requester)}"></label>
     <label>Descripción<textarea id="detailDescription" rows="3">${escapeHtml(ticket.description)}</textarea></label>
-    <h3>Comentarios</h3><div class="comment-list">${(ticket.comments||[]).map(c=>`<div class="comment"><strong>${escapeHtml(c.author)}</strong><small>${escapeHtml(c.date)}</small><p>${escapeHtml(c.text)}</p></div>`).join("")||'<p class="muted">Sin comentarios todavía.</p>'}</div>
-    <form id="commentForm"><label>Agregar comentario<textarea name="comment" rows="2" required maxlength="2000" placeholder="Escribí una actualización..."></textarea></label><button class="secondary-button" type="submit">Publicar comentario</button></form>
-    <div class="dialog-actions"><button class="primary-button" type="button" id="saveDetail">Guardar cambios</button></div>`;
+    <h3>Comentarios públicos</h3>${apiComments ? '<p class="nx-activity-hint">Los comentarios públicos aparecen en Actividad.</p>' : `<div class="comment-list">${(ticket.comments||[]).map(c=>`<div class="comment"><strong>${escapeHtml(c.author)}</strong><small>${escapeHtml(c.date)}</small><p>${escapeHtml(c.text)}</p></div>`).join("")||'<p class="muted">Sin comentarios todavía.</p>'}</div>`}
+    <form id="commentForm" aria-busy="${apiComments && commentState.busy}"><label>Agregar comentario<textarea name="comment" rows="2" required maxlength="2000" placeholder="Escribí una actualización..." ${apiComments && commentState.busy ? 'disabled' : ''}>${apiComments ? escapeHtml(commentState.text) : ''}</textarea></label><button class="secondary-button" type="submit" ${apiComments && commentState.busy ? 'disabled' : ''}>Publicar comentario</button><p id="publicCommentFeedback" class="nx-activity-hint" role="status">${apiComments ? escapeHtml(commentState.busy ? 'Guardando comentario público…' : commentState.error || commentState.notice) : ''}</p></form>
+    <div class="dialog-actions"><button class="primary-button" type="button" id="saveDetail">Guardar cambios</button></div><div id="ticketActivity"></div>`;
   if(readOnly){
     detail.querySelectorAll("select, input, textarea:not([name=comment])").forEach(el=>el.disabled=true);
     detail.querySelector("#saveDetail").hidden=true;
@@ -217,9 +223,27 @@ function openTicket(id) {
   });
   detail.querySelector("#commentForm").addEventListener("submit",async event=>{
     event.preventDefault();const message=String(new FormData(event.target).get("comment")).trim();if(!message)return;
-    if(window.NexoBridge?.isServer() && window.NexoAuth.isRequester()){
-      try {await window.NexoBridge.addComment(ticket.id,message);openTicket(ticket.id);showToast("Comentario guardado en PostgreSQL.");}
-      catch(err){showToast(`No se guardó el comentario: ${err.message}`);}
+    if(window.NexoBridge?.isServer()){
+      if(commentState.busy)return;
+      const authorId=String(window.NexoAuth.user?.id);
+      const stillCurrent=()=>document.querySelector('#detailDialog').open && detail.dataset.ticketId===String(ticket.id) &&
+        window.NexoBridge?.isServer() && String(window.NexoAuth.user?.id)===authorId;
+      commentState.busy=true;commentState.text=message;commentState.error='';commentState.notice='';
+      const refreshCommentForm=()=>{
+        if(!stillCurrent())return;
+        const active=detail.querySelector('#commentForm');
+        active.setAttribute('aria-busy',String(commentState.busy));
+        active.querySelector('[name=comment]').disabled=commentState.busy;
+        active.querySelector('[name=comment]').value=commentState.text;
+        active.querySelector('button').disabled=commentState.busy;
+        active.querySelector('[role=status]').textContent=commentState.busy?'Guardando comentario público…':commentState.error||commentState.notice;
+      };
+      refreshCommentForm();
+      let saved=false;
+      try {await window.NexoBridge.addComment(ticket.id,message);commentState.text='';commentState.notice='Comentario público guardado.';saved=true;}
+      catch(err){commentState.error=`No se pudo confirmar el comentario: ${err.message}`;}
+      finally {commentState.busy=false;refreshCommentForm();}
+      if(saved && stillCurrent())window.NexoTicketActivity?.mount({ticketId:ticket.id,root:detail.querySelector('#ticketActivity'),dialog:document.querySelector('#detailDialog')});
       return;
     }
     ticket.comments??=[];
@@ -227,6 +251,7 @@ function openTicket(id) {
     saveTickets();openTicket(ticket.id);showToast("Comentario enviado.");
   });
   const dialog=document.querySelector("#detailDialog");if(!dialog.open)dialog.showModal();
+  window.NexoTicketActivity?.mount({ticketId:ticket.id,root:detail.querySelector('#ticketActivity'),dialog});
 }
 document.querySelector("#newTicketButton").addEventListener("click", () => {
   if(window.NexoAuth.isSelfService()){navigate('portal-create');return;}

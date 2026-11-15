@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { pool } from './db.js';
 import { requireAuth, requireRole, STAFF } from './auth.js';
 import { requestFields, requestView } from './portal-response.js';
+import { changedValues, recordChanges, recordCreated, transaction } from './ticket-audit.js';
 
 const route = (fn:(req:Request,res:Response)=>Promise<void>):RequestHandler =>
   (req,res,next)=>{Promise.resolve(fn(req,res)).catch(next);};
@@ -103,18 +104,26 @@ export function registerV23Routes(app:Express):void {
     const client=await pool.connect();
     try {
       await client.query('BEGIN');
-      const ticket=await client.query('SELECT id FROM tickets WHERE id=$1 FOR UPDATE',[id]);
+      const ticket=await client.query('SELECT id,priority,assignee FROM tickets WHERE id=$1 FOR UPDATE',[id]);
       if(!ticket.rowCount){await client.query('ROLLBACK');res.status(404).json({error:'Ticket no encontrado'});return;}
-      await client.query(`INSERT INTO triage_cases(ticket_id,category,impact,urgency,diagnosis,updated_by)
-        VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(ticket_id) DO UPDATE SET category=EXCLUDED.category,
+      const previous=await client.query(`SELECT category,impact,urgency,diagnosis FROM triage_cases WHERE ticket_id=$1`,[id]);
+      const before=previous.rows[0]??{category:'Sin clasificar',impact:'Medio',urgency:'Media',diagnosis:''};
+      await client.query(`INSERT INTO triage_cases(ticket_id,category,impact,urgency,diagnosis,updated_by,updated_at)
+        VALUES($1,$2,$3,$4,$5,$6,clock_timestamp()) ON CONFLICT(ticket_id) DO UPDATE SET category=EXCLUDED.category,
         impact=EXCLUDED.impact,urgency=EXCLUDED.urgency,diagnosis=EXCLUDED.diagnosis,
-        updated_by=EXCLUDED.updated_by,updated_at=now()`,
+        updated_by=EXCLUDED.updated_by,updated_at=clock_timestamp()`,
         [id,form.category,form.impact,form.urgency,form.diagnosis,req.currentUser!.id]);
-      if(form.newTest) await client.query('INSERT INTO triage_tests(ticket_id,description,created_by) VALUES($1,$2,$3)',
+      if(form.newTest) await client.query('INSERT INTO triage_tests(ticket_id,description,created_by,created_at) VALUES($1,$2,$3,clock_timestamp())',
         [id,form.newTest,req.currentUser!.id]);
-      await client.query(`INSERT INTO triage_events(ticket_id,kind,note,created_by) VALUES($1,'Diagnóstico actualizado',$2,$3)`,
-        [id,`${form.category} · Impacto ${form.impact} · Urgencia ${form.urgency}${form.newTest?' · Nueva prueba registrada':''}`,req.currentUser!.id]);
-      if(form.applyPriority)await client.query('UPDATE tickets SET priority=$1,updated_at=now() WHERE id=$2',[suggested,id]);
+      const changes=changedValues(before,form,['category','impact','urgency','diagnosis']);
+      if(form.newTest)changes.testDescription={old:null,new:form.newTest};
+      if(!previous.rowCount||Object.keys(changes).length)await client.query(`INSERT INTO triage_events(ticket_id,kind,note,created_by,actor_name,changes,created_at)
+        VALUES($1,'Diagnóstico actualizado',$2,$3,$4,$5::jsonb,clock_timestamp())`,
+        [id,`${form.category} · Impacto ${form.impact} · Urgencia ${form.urgency}${form.newTest?' · Nueva prueba registrada':''}`,req.currentUser!.id,req.currentUser!.name,JSON.stringify(changes)]);
+      if(form.applyPriority&&ticket.rows[0].priority!==suggested){
+        await client.query('UPDATE tickets SET priority=$1,updated_at=clock_timestamp() WHERE id=$2',[suggested,id]);
+        await recordChanges(client,id,ticket.rows[0],{...ticket.rows[0],priority:suggested},req.currentUser!,'triage.priority');
+      }
       await client.query('COMMIT');
     } catch(err){await client.query('ROLLBACK');throw err;} finally{client.release();}
     res.json({data:await getTriage(id),suggestedPriority:suggested,priorityApplied:form.applyPriority});
@@ -125,7 +134,7 @@ export function registerV23Routes(app:Express):void {
     try {
       await client.query('BEGIN');
       // Bloquear el ticket antes del caso: igual orden que en clasificación.
-      const ticket=await client.query('SELECT id FROM tickets WHERE id=$1 FOR UPDATE',[id]);
+      const ticket=await client.query('SELECT id,priority,assignee FROM tickets WHERE id=$1 FOR UPDATE',[id]);
       if(!ticket.rowCount){await client.query('ROLLBACK');res.status(404).json({error:'Ticket no encontrado'});return;}
       const current=await client.query('SELECT level,diagnosis FROM triage_cases WHERE ticket_id=$1 FOR UPDATE',[id]);
       const row=current.rows[0];
@@ -139,11 +148,15 @@ export function registerV23Routes(app:Express):void {
         if(!target.rowCount){await client.query('ROLLBACK');res.status(400).json({error:'Técnico destino inválido'});return;}
         assigneeName=target.rows[0].name;
       }
-      await client.query('UPDATE triage_cases SET level=$1,updated_by=$2,updated_at=now() WHERE ticket_id=$3',
+      await client.query('UPDATE triage_cases SET level=$1,updated_by=$2,updated_at=clock_timestamp() WHERE ticket_id=$3',
         [form.toLevel,req.currentUser!.id,id]);
-      await client.query(`INSERT INTO triage_events(ticket_id,kind,from_level,to_level,note,pending,created_by)
-        VALUES($1,'Transferencia',$2,$3,$4,$5,$6)`,[id,row.level,form.toLevel,form.reason,form.pending,req.currentUser!.id]);
-      if(assigneeName!==null)await client.query('UPDATE tickets SET assignee=$1,updated_at=now() WHERE id=$2',[assigneeName,id]);
+      await client.query(`INSERT INTO triage_events(ticket_id,kind,from_level,to_level,note,pending,created_by,actor_name,changes,created_at)
+        VALUES($1,'Transferencia',$2,$3,$4,$5,$6,$7,$8::jsonb,clock_timestamp())`,
+        [id,row.level,form.toLevel,form.reason,form.pending,req.currentUser!.id,req.currentUser!.name,JSON.stringify({level:{old:row.level,new:form.toLevel}})]);
+      if(assigneeName!==null&&ticket.rows[0].assignee!==assigneeName){
+        await client.query('UPDATE tickets SET assignee=$1,updated_at=clock_timestamp() WHERE id=$2',[assigneeName,id]);
+        await recordChanges(client,id,ticket.rows[0],{...ticket.rows[0],assignee:assigneeName},req.currentUser!,'triage.assignment');
+      }
       await client.query('COMMIT');
     } catch(err){await client.query('ROLLBACK');throw err;} finally{client.release();}
     res.json({data:await getTriage(id)});
@@ -160,11 +173,16 @@ export function registerV23Routes(app:Express):void {
       res.status(403).json({error:'Solo podés enviar tipo, asunto y descripción. La identidad y los campos de gestión los establece el servidor.'});return;
     }
     const t=portalCreate.parse(req.body);const self=req.currentUser!;
-    const {rows}=await pool.query(`INSERT INTO tickets(title,description,type,priority,status,requester,
-      requester_email,assignee,comments,source) VALUES($1,$2,$3,'Media','Registrado',$4,$5,
-      'Sin asignar','[]'::jsonb,'Portal') RETURNING id,title,type,priority,status,created_at AS "createdAt"`,
-      [t.title,t.description,t.type,self.name,self.email]);
-    res.status(201).json({data:rows[0]});
+    const ticket=await transaction(async client=>{
+      const {rows}=await client.query(`INSERT INTO tickets(title,description,type,priority,status,requester,
+        requester_email,assignee,comments,source) VALUES($1,$2,$3,'Media','Registrado',$4,$5,
+        'Sin asignar','[]'::jsonb,'Portal') RETURNING id,title,type,priority,status,description,requester,assignee,created_at AS "createdAt"`,
+        [t.title,t.description,t.type,self.name,self.email]);
+      await recordCreated(client,rows[0],self,'portal.create');
+      const {description:_description,requester:_requester,assignee:_assignee,...publicResult}=rows[0];
+      return publicResult;
+    });
+    res.status(201).json({data:ticket});
   }));
   app.get('/api/portal/requests/:id',requireAuth,route(async(req,res)=>{
     const id=idParam(req.params.id);

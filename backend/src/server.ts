@@ -5,6 +5,8 @@ import { z, ZodError } from 'zod';
 import { pool } from './db.js';
 import { registerV23Routes } from './modules-v23.js';
 import { requestFields, requestView } from './portal-response.js';
+import { registerActivityRoutes } from './ticket-activity.js';
+import { changedValues, recordChanges, recordCreated, transaction } from './ticket-audit.js';
 import {
   hashPassword, verifyPassword, passwordError, issueSession, revokeSession, revokeUserSessions,
   clearSessionCookie, requireAuth, requireRole, STAFF, MANAGERS
@@ -172,31 +174,53 @@ app.get('/api/tickets/:id',requireAuth,asyncRoute(async(req,res)=>{
 // contrato reducido /portal/requests, con identidad y valores fijados aquí.
 app.post('/api/tickets',requireAuth,requireRole(...STAFF),asyncRoute(async(req,res)=>{
   const data=ticketCreate.parse(req.body);
-  const {rows}=await pool.query(`INSERT INTO tickets(title,description,type,priority,status,requester,requester_email,assignee,comments,source)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,'[]'::jsonb,$9) RETURNING ${ticketFields}`,
-    [data.title,data.description,data.type,data.priority,data.status,data.requester,data.requesterEmail??null,data.assignee,data.source]);
-  res.status(201).json({data:rows[0]});
+  const ticket=await transaction(async client=>{
+    const {rows}=await client.query(`INSERT INTO tickets(title,description,type,priority,status,requester,requester_email,assignee,comments,source)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,'[]'::jsonb,$9) RETURNING ${ticketFields}`,
+      [data.title,data.description,data.type,data.priority,data.status,data.requester,data.requesterEmail??null,data.assignee,data.source]);
+    await recordCreated(client,rows[0],req.currentUser!,'staff.create');
+    return rows[0];
+  });
+  res.status(201).json({data:ticket});
 }));
 app.patch('/api/tickets/:id',requireAuth,requireRole(...STAFF),asyncRoute(async(req,res)=>{
   const id=getId(req.params.id);const data=ticketPatch.parse(req.body);
-  const entries=Object.entries(data);
-  const updates=entries.map(([key],i)=>`${key}=$${i+1}`);
-  const values:unknown[]=entries.map(([,value])=>value);values.push(id);
-  const {rows}=await pool.query(`UPDATE tickets SET ${updates.join(',')},updated_at=now()
-    WHERE id=$${values.length} RETURNING ${ticketFields}`,values);
-  if(!rows.length){res.status(404).json({error:'Ticket no encontrado'});return;}
-  res.json({data:rows[0]});
+  const ticket=await transaction(async client=>{
+    const previous=await client.query(`SELECT ${ticketFields} FROM tickets WHERE id=$1 FOR UPDATE`,[id]);
+    if(!previous.rowCount)return null;
+    const before=previous.rows[0],after={...before,...data};
+    const changes=changedValues(before,after,Object.keys(data));
+    if(!Object.keys(changes).length)return before;
+    const entries=Object.entries(data);
+    const updates=entries.map(([key],i)=>`${key}=$${i+1}`);
+    const values:unknown[]=entries.map(([,value])=>value);values.push(id);
+    const {rows}=await client.query(`UPDATE tickets SET ${updates.join(',')},updated_at=clock_timestamp()
+      WHERE id=$${values.length} RETURNING ${ticketFields}`,values);
+    await recordChanges(client,id,before,rows[0],req.currentUser!,'staff.update');
+    return rows[0];
+  });
+  if(!ticket){res.status(404).json({error:'Ticket no encontrado'});return;}
+  res.json({data:ticket});
 }));
 app.post('/api/tickets/:id/comments',requireAuth,asyncRoute(async(req,res)=>{
   const id=getId(req.params.id);const input=commentInput.parse(req.body);const self=req.currentUser!;
-  const comment={author:self.name,date:new Date().toISOString(),text:input.text};
-  const {rows}=await pool.query(`UPDATE tickets SET comments=comments||$1::jsonb,updated_at=now()
-    WHERE id=$2 AND jsonb_array_length(comments)<100${self.role==='Solicitante'?' AND requester_email=$3':''}
-    RETURNING ${ticketFields}`,[JSON.stringify([comment]),id,...(self.role==='Solicitante'?[self.email]:[])]);
-  if(!rows.length){res.status(self.role==='Solicitante'?403:404).json({error:'Ticket no disponible o límite de comentarios alcanzado'});return;}
-  res.status(201).json({data:self.role==='Solicitante'?requestView(rows[0]):rows[0]});
+  const ticket=await transaction(async client=>{
+    const access=await client.query(`SELECT id FROM tickets WHERE id=$1 AND jsonb_array_length(comments)<100
+      ${self.role==='Solicitante'?' AND requester_email=$2':''} FOR UPDATE`,[id,...(self.role==='Solicitante'?[self.email]:[])]);
+    if(!access.rowCount)return null;
+    // Timestamp is generated after acquiring the same ticket lock used by
+    // audit mutations, never from caller metadata or before a queued update.
+    const {rows}=await client.query(`UPDATE tickets SET comments=comments||jsonb_build_array(jsonb_build_object(
+      'author',$1::text,'authorId',$2::bigint,'date',to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+      'text',$3::text)),updated_at=clock_timestamp() WHERE id=$4 RETURNING ${ticketFields}`,
+      [self.name,self.id,input.text,id]);
+    return rows[0];
+  });
+  if(!ticket){res.status(self.role==='Solicitante'?403:404).json({error:'Ticket no disponible o límite de comentarios alcanzado'});return;}
+  res.status(201).json({data:self.role==='Solicitante'?requestView(ticket):ticket});
 }));
 registerV23Routes(app);
+registerActivityRoutes(app);
 app.use((_req,res)=>res.status(404).json({error:'Ruta no encontrada'}));
 const errors:ErrorRequestHandler=(err:unknown,_req,res,_next)=>{
   if(err instanceof ZodError){res.status(400).json({error:'Datos inválidos',details:err.issues.map(i=>({field:i.path.join('.'),message:i.message}))});return;}
@@ -212,5 +236,5 @@ const errors:ErrorRequestHandler=(err:unknown,_req,res,_next)=>{
 app.use(errors);
 const host=process.env.HOST??'127.0.0.1';const port=Number(process.env.PORT??3001);
 if(!Number.isInteger(port)||port<1||port>65535)throw Error('Puerto inválido');
-const server=app.listen(port,host,()=>console.log(`NEXODESK API V2.3 en http://${host}:${port}`));
+const server=app.listen(port,host,()=>console.log(`NEXODESK API V2.4 en http://${host}:${port}`));
 process.on('SIGINT',()=>server.close(()=>{void pool.end().then(()=>process.exit(0));}));

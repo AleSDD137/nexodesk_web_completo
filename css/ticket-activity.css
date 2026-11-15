@@ -1,0 +1,61 @@
+/* Ficha IT V2.4. El alcance del diálogo evita cambiar Portal, Assets o Triage. */
+#detailDialog.nx-ticket-activity-dialog {
+  width: min(900px,calc(100vw - 24px));
+  background: #102131;
+  color: #e8f4fa;
+  border: 1px solid #527b8f;
+  color-scheme: dark;
+}
+#detailDialog.nx-ticket-activity-dialog :is(h2,h3,h4) { color: #f3faff; }
+#detailDialog.nx-ticket-activity-dialog label { color: #c7dbe6; }
+#detailDialog.nx-ticket-activity-dialog :is(input,select,textarea) {
+  background: #0c1929;
+  color: #f0f7fb;
+  border-color: #648497;
+  max-width: 100%;
+  min-width: 0;
+}
+#detailDialog.nx-ticket-activity-dialog select option { color: #f0f7fb; background: #0c1929; }
+#detailDialog.nx-ticket-activity-dialog :is(input,textarea)::placeholder { color: #aac0cf; opacity: 1; }
+#detailDialog.nx-ticket-activity-dialog :is(input,select,textarea):enabled:hover { border-color: #59ded5; }
+#detailDialog.nx-ticket-activity-dialog :is(input,select,textarea,button,summary):focus-visible { outline: 2px solid #59ded5; outline-offset: 3px; }
+#detailDialog.nx-ticket-activity-dialog :is(input,select,textarea,button):disabled { color: #c0d4df; background: #244152; border-color: #648497; opacity: 1; cursor: not-allowed; }
+#detailDialog.nx-ticket-activity-dialog .secondary-button { background: #1c3a4b; border-color: #527b8f; color: #d8f4fb; }
+#detailDialog.nx-ticket-activity-dialog .secondary-button:enabled:hover { background: #245065; border-color: #59ded5; }
+#detailDialog.nx-ticket-activity-dialog .comment { background: #193243; color: #e8f4fa; }
+#detailDialog.nx-ticket-activity-dialog .comment small { color: #aec4d3; }
+.nx-ticket-activity { border-top: 1px solid #416476; padding-top: 20px; margin-top: 24px; min-width: 0; }
+.nx-activity-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.nx-activity-heading h3 { margin: 0 0 8px; }
+.nx-activity-hint, .nx-activity-empty { color: #aec4d3; font-size: 12px; line-height: 1.6; }
+.nx-activity-status { border: 1px solid #416476; border-radius: 9px; padding: 10px 12px; color: #b7f1e2; background: #173741; line-height: 1.6; font-size: 12px; }
+.nx-activity-status[data-state="pending"] { background: #303c36; color: #f5e8bb; border-color: #9e925e; }
+.nx-activity-status[data-state="error"] { background: #402a36; color: #ffd4dc; border-color: #b67786; }
+.nx-activity-list { list-style: none; padding: 0; margin: 18px 0; display: grid; gap: 12px; }
+.nx-activity-entry { padding: 14px 16px; background: #142b3b; border: 1px solid #416476; border-left: 3px solid #59ded5; border-radius: 10px; min-width: 0; overflow-wrap: anywhere; }
+.nx-activity-note { background: #23283f; border-left-color: #b6a9f9; }
+.nx-activity-comment { border-left-color: #87c5fc; }
+.nx-activity-triage { border-left-color: #8ee2c4; }
+.nx-activity-entry-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 13px; }
+.nx-activity-badge { color: #e4f6ff; border: 1px solid #527b8f; border-radius: 12px; padding: 3px 8px; font-size: 10px; }
+.nx-activity-meta { color: #b6cbda; display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0; font-size: 11px; line-height: 1.6; }
+.nx-activity-entry p { white-space: pre-wrap; font-size: 12px; line-height: 1.7; }
+.nx-activity-changes { margin-top: 12px; color: #d9edf6; font-size: 12px; }
+.nx-activity-changes summary { cursor: pointer; color: #82e8e4; padding: 4px; }
+.nx-activity-changes dl { display: grid; gap: 12px; }
+.nx-activity-changes dt { font-weight: 700; margin-bottom: 5px; }
+.nx-activity-changes dd { margin: 0; white-space: pre-wrap; line-height: 1.7; }
+.nx-change-label { color: #aec4d3; }
+.nx-internal-note-form { background: #172c3d; border: 1px solid #527b8f; border-radius: 12px; padding: 16px; margin-top: 20px; }
+.nx-internal-note-form h4 { margin: 0 0 8px; }
+.nx-internal-note-form textarea { resize: vertical; margin: 0 0 12px; }
+@media (max-width:620px) {
+  .nx-activity-heading { flex-direction: column; }
+  .nx-activity-heading button, .nx-internal-note-form button { width: 100%; }
+  .nx-activity-entry, .nx-internal-note-form { padding: 12px; }
+}
+@media (max-width:760px) {
+  /* El grid operativo heredado usa 1fr con un mínimo implícito que puede
+     ensanchar la página detrás del modal por el menú horizontal. */
+  body:has(#detailDialog.nx-ticket-activity-dialog[open]) .app-shell { grid-template-columns: minmax(0,1fr); }
+}
