@@ -37,7 +37,7 @@ const pool=new pg.Pool({connectionString:process.env.DATABASE_URL});
 try {
   const {rows}=await pool.query('SELECT current_database() AS name');
   if(!rows[0].name.startsWith('nexodesk_test_'))throw Error('Refusing non-test database');
-  for(const file of ['001_init.sql','002_frontend_compat.sql','003_auth.sql','004_assets_triage_portal.sql'])
+  for(const file of ['001_init.sql','002_frontend_compat.sql','003_auth.sql','004_assets_triage_portal.sql','005_ticket_activity.sql'])
     await pool.query(await readFile('sql/'+file,'utf8'));
   const run=randomBytes(8).toString('hex'),accounts={};
   for(const [key,role,level] of [['requester','Solicitante',null],['other','Solicitante',null],
@@ -151,8 +151,8 @@ class RequesterPortal(unittest.TestCase):
             Path(directory).mkdir(parents=True, exist_ok=True)
             page.screenshot(path=str(Path(directory) / (name + '.png')), full_page=True)
 
-    def assert_readable(self, page):
-        readings = page.locator('.nx-workspace').evaluate("""root=>{
+    def assert_readable(self, page, selector='.nx-workspace'):
+        readings = page.locator(selector).evaluate("""root=>{
           const rgb=s=>(s.match(/[\\d.]+/g)||[]).map(Number);
           const background=e=>{
             if(!e)return [255,255,255];
