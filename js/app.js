@@ -37,8 +37,25 @@ const initialTickets = [
   {id:10282,title:"Instalación de software de diseño",type:"Requerimiento",priority:"Media",assignee:"Sin asignar",requester:"Nicolás Vera",status:"En revisión",description:"Revisar disponibilidad del técnico."},
   {id:10393,title:"Problema de acceso a sistema ERP",type:"Incidente",priority:"Baja",assignee:"C. Vargas",requester:"Martín León",status:"En atención",description:"Analizar permisos de acceso."}
 ];
-let tickets = loadTickets();
+let tickets = window.NexoAuth.sessionMode==='api'?[]:loadTickets();
 let currentView = "dashboard";
+let portalSection = 'home';
+const viewNames=['dashboard','tickets','procesos','reportes','configuracion','usuarios','pulse','assets','portal','relaciones','intelligence','triage','cuenta'];
+function navigate(route, {replace=false} = {}) {
+  const section=String(route).startsWith('portal-')?String(route).slice(7):'home';
+  const requested=String(route).startsWith('portal-')?'portal':route;
+  const fallback=window.NexoAuth.isSelfService()?'portal':'dashboard';
+  currentView=viewNames.includes(requested)&&window.NexoAuth.canAccessView(requested)?requested:fallback;
+  portalSection=currentView==='portal'&&['home','create','requests','help'].includes(section)?section:'home';
+  const canonical=currentView==='portal'&&portalSection!=='home'?`portal-${portalSection}`:currentView;
+  const url=new URL(location.href);url.searchParams.delete('view');url.hash=canonical;
+  if(location.href!==url.href)history[replace?'replaceState':'pushState'](null,'',url);
+  render();
+  if(currentView==='portal'&&window.NexoAuth.isSelfService())requestAnimationFrame(()=>{
+    document.querySelector(`[data-portal-heading="${portalSection}"]`)?.focus({preventScroll:true});
+    document.querySelector(`[data-portal-heading="${portalSection}"]`)?.scrollIntoView({block:'start'});
+  });
+}
 const board = document.querySelector("#kanbanBoard");
 const searchInput = document.querySelector("#searchInput");
 const priorityFilter = document.querySelector("#priorityFilter");
@@ -116,6 +133,7 @@ function renderAlternate() {
  if(currentView==="triage"){window.NexoV15.render({tickets,users,openTicket,showToast,saveTickets,render});return;}
  if(["pulse","assets","portal"].includes(currentView)){window.NexoV12.render(currentView,{tickets,users,escapeHtml,showToast,openTicket,saveTickets,render});return;}
  if(currentView==="tickets"){view.innerHTML=renderTable();return;}
+ if(currentView==="cuenta"){window.NexoAuth.renderAccount(view);return;}
  if(currentView==="usuarios" && window.NexoBridge?.isServer()){
    window.NexoAuth.renderUsers(view); return;
  }
@@ -145,13 +163,18 @@ function updateMetrics(){
  document.querySelector("#unassignedCount").textContent=tickets.filter(t=>t.assignee==="Sin asignar"&&t.status!=="Cerrado").length;
 }
 function render() {
+  if(!window.NexoAuth.canAccessView(currentView))currentView=window.NexoAuth.isSelfService()?'portal':'dashboard';
   const isDashboard = currentView === "dashboard";
   document.body.classList.toggle("compact-mode",!!settings.compact);
   document.querySelector("#boardSection").classList.toggle("hidden", !isDashboard);
   document.querySelector(".stats-grid").classList.toggle("hidden", !isDashboard);
   document.querySelector("#alternateView").classList.toggle("hidden", isDashboard);
-  document.querySelector("#pageTitle").textContent = ({dashboard:"Panel de tickets",tickets:"Gestión de tickets",procesos:"Procesos de atención",reportes:"Reportes y métricas",configuracion:"Configuración",usuarios:"Usuarios y técnicos",pulse:"Pulse · Centro de operaciones",assets:"Assets · Inventario IT",portal:"Portal · Autoservicio",relaciones:"Relaciones · Mapa IT",intelligence:"Intelligence · Análisis de tickets",triage:"Triage · Clasificación y escalamiento"})[currentView];
-  document.querySelectorAll(".nav-item").forEach(button => button.classList.toggle("active", button.dataset.view === currentView));
+  document.querySelector("#pageTitle").textContent = ({dashboard:"Panel de tickets",tickets:"Gestión de tickets",procesos:"Procesos de atención",reportes:"Reportes y métricas",configuracion:"Configuración",usuarios:"Usuarios y técnicos",pulse:"Pulse · Centro de operaciones",assets:"Assets · Inventario IT",portal:window.NexoAuth.isSelfService()?"Mi Portal":"Portal · Autoservicio",cuenta:"Mi cuenta",relaciones:"Relaciones · Mapa IT",intelligence:"Intelligence · Análisis de tickets",triage:"Triage · Clasificación y escalamiento"})[currentView];
+  document.querySelectorAll('.nav-item').forEach(button=>{
+    const active=button.dataset.portalSection?currentView==='portal'&&portalSection===button.dataset.portalSection:button.dataset.view===currentView;
+    button.classList.toggle('active',active);
+    if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
+  });
   if (isDashboard) renderBoard(); else renderAlternate();
   updateMetrics();
 }
@@ -161,6 +184,12 @@ function showToast(message) {
   clearTimeout(toastTimeout); toastTimeout = setTimeout(() => toast.classList.remove("show"), 2800);
 }
 function openTicket(id) {
+  if(window.NexoAuth.isSelfService()){
+    navigate('portal-requests');
+    const input=document.querySelector('#nxLookupId');
+    if(input){input.value=String(id);input.dispatchEvent(new Event('input'));document.querySelector('#nxLookup').click();}
+    return;
+  }
   const ticket=tickets.find(item=>item.id===Number(id)); if(!ticket)return;
   const readOnly=window.NexoBridge?.isServer() && window.NexoAuth.isRequester();
   const detail=document.querySelector("#detailContent");
@@ -179,6 +208,7 @@ function openTicket(id) {
     detail.querySelector("#saveDetail").hidden=true;
   }
   detail.querySelector("#saveDetail").addEventListener("click",()=>{
+    if(!window.NexoAuth.canEdit()){navigate('portal');return;}
     if(window.NexoBridge?.isServer()&&!window.NexoBridge.isReady()){showToast("Sin conexión: no se pueden guardar cambios.");return;}
     const description=detail.querySelector("#detailDescription").value.trim();const requester=detail.querySelector("#detailRequester").value.trim();
     if(!description||!requester){showToast("Completá solicitante y descripción.");return;}
@@ -199,15 +229,14 @@ function openTicket(id) {
   const dialog=document.querySelector("#detailDialog");if(!dialog.open)dialog.showModal();
 }
 document.querySelector("#newTicketButton").addEventListener("click", () => {
-  if(window.NexoBridge?.isServer() && window.NexoAuth.isRequester()){
-    form.querySelector('[name="requester"]').value=window.NexoAuth.user.name;
-  }
+  if(window.NexoAuth.isSelfService()){navigate('portal-create');return;}
   dialog.showModal();
 });
 document.querySelector("#closeDialog").addEventListener("click", () => dialog.close());
 document.querySelector("#cancelDialog").addEventListener("click", () => dialog.close());
 form.addEventListener("submit", event => {
   event.preventDefault();
+  if(window.NexoAuth.isSelfService()){dialog.close();navigate('portal-create');return;}
   if(window.NexoBridge?.isServer()&&!window.NexoBridge.isReady()){showToast("Sin conexión a PostgreSQL.");return;}
   const data = new FormData(form);
   const ticket = {
@@ -219,8 +248,11 @@ form.addEventListener("submit", event => {
   tickets.unshift(ticket); saveTickets(); form.reset(); dialog.close(); currentView = "dashboard"; render();
   showToast(`Ticket #${ticket.id} creado correctamente.`);
 });
-document.querySelectorAll(".nav-item").forEach(button => button.addEventListener("click", () => { if(button.hidden)return;currentView = button.dataset.view; render(); }));
-window.addEventListener("nexodesk:open-view",event=>{ if(["pulse","assets","portal","tickets","dashboard","relaciones","intelligence","triage"].includes(event.detail)){ const button=document.querySelector(`.nav-item[data-view="${event.detail}"]`);if(button?.hidden)return;currentView=event.detail;render();} });
+document.querySelectorAll('.nav-item').forEach(button=>button.addEventListener('click',()=>{
+  navigate(button.dataset.portalSection?`portal-${button.dataset.portalSection}`:button.dataset.view);
+}));
+window.addEventListener('nexodesk:open-view',event=>navigate(event.detail));
+window.addEventListener('hashchange',()=>navigate(location.hash.slice(1),{replace:true}));
 searchInput.addEventListener("input", render);
 priorityFilter.addEventListener("change", render);
 board.addEventListener("click", event => {
@@ -263,11 +295,16 @@ document.querySelector("#alternateView").addEventListener("change",e=>{
 
 window.NexoAuth.ensure().then(allowed=>{
   if(!allowed)return;
-  render();
+  window.NexoAuth.useSource(window.NexoAuth.sessionMode==='api'?'api':'demo');
+  const requested=location.hash.slice(1)||new URLSearchParams(location.search).get('view')||(window.NexoAuth.isSelfService()?'portal':'dashboard');
+  // Resolver antes del primer render evita mostrar momentáneamente el panel IT.
+  const initial=String(requested).startsWith('portal-')?'portal':requested;
+  currentView=viewNames.includes(initial)&&window.NexoAuth.canAccessView(initial)?initial:(window.NexoAuth.isSelfService()?'portal':'dashboard');
   window.NexoBridge.init({
   getTickets: () => tickets,
   setTickets: list => { tickets = list; render(); window.dispatchEvent(new CustomEvent("nexodesk:tickets-changed")); },
   render, showToast, loadDemo: loadTickets
   });
+  navigate(requested,{replace:true});
   document.body.classList.remove("nx-auth-pending");
 });

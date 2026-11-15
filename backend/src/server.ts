@@ -4,6 +4,7 @@ import cors from 'cors';
 import { z, ZodError } from 'zod';
 import { pool } from './db.js';
 import { registerV23Routes } from './modules-v23.js';
+import { requestFields, requestView } from './portal-response.js';
 import {
   hashPassword, verifyPassword, passwordError, issueSession, revokeSession, revokeUserSessions,
   clearSessionCookie, requireAuth, requireRole, STAFF, MANAGERS
@@ -155,27 +156,25 @@ app.get('/api/tickets',requireAuth,asyncRoute(async(req,res)=>{
   if(parsed.data.status){values.push(parsed.data.status);filters.push(`status=$${values.length}`);}
   if(parsed.data.search){values.push(`%${parsed.data.search}%`);filters.push(`(title ILIKE $${values.length} OR requester ILIKE $${values.length})`);}
   const where=filters.length?' WHERE '+filters.join(' AND '):'';
-  const {rows}=await pool.query(`SELECT ${ticketFields} FROM tickets${where} ORDER BY created_at DESC,id DESC LIMIT 200`,values);
-  res.json({data:rows,limit:200});
+  const requester=req.currentUser!.role==='Solicitante';
+  const {rows}=await pool.query(`SELECT ${requester?requestFields:ticketFields} FROM tickets${where} ORDER BY created_at DESC,id DESC LIMIT 200`,values);
+  res.json({data:requester?rows.map(requestView):rows,limit:200});
 }));
 app.get('/api/tickets/:id',requireAuth,asyncRoute(async(req,res)=>{
   const id=getId(req.params.id);
   const requester=req.currentUser!.role==='Solicitante';
-  const {rows}=await pool.query(`SELECT ${ticketFields} FROM tickets WHERE id=$1${requester?' AND requester_email=$2':''}`,
+  const {rows}=await pool.query(`SELECT ${requester?requestFields:ticketFields} FROM tickets WHERE id=$1${requester?' AND requester_email=$2':''}`,
     requester?[id,req.currentUser!.email]:[id]);
-  if(!rows.length){res.status(404).json({error:'Ticket no encontrado'});return;}
-  res.json({data:rows[0]});
+  if(!rows.length){res.status(requester?403:404).json({error:'Ticket no disponible para esta cuenta'});return;}
+  res.json({data:requester?requestView(rows[0]):rows[0]});
 }));
-app.post('/api/tickets',requireAuth,asyncRoute(async(req,res)=>{
-  const data=ticketCreate.parse(req.body);const self=req.currentUser!;
-  const requester=self.role==='Solicitante'?self.name:data.requester;
-  const requesterEmail=self.role==='Solicitante'?self.email:data.requesterEmail??null;
-  const assignee=self.role==='Solicitante'?'Sin asignar':data.assignee;
-  const priority=self.role==='Solicitante'?'Media':data.priority;
-  const status=self.role==='Solicitante'?'Registrado':data.status;
+// El alta administrativa pertenece al personal IT. El empleado utiliza el
+// contrato reducido /portal/requests, con identidad y valores fijados aquí.
+app.post('/api/tickets',requireAuth,requireRole(...STAFF),asyncRoute(async(req,res)=>{
+  const data=ticketCreate.parse(req.body);
   const {rows}=await pool.query(`INSERT INTO tickets(title,description,type,priority,status,requester,requester_email,assignee,comments,source)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,'[]'::jsonb,$9) RETURNING ${ticketFields}`,
-    [data.title,data.description,data.type,priority,status,requester,requesterEmail,assignee,data.source]);
+    [data.title,data.description,data.type,data.priority,data.status,data.requester,data.requesterEmail??null,data.assignee,data.source]);
   res.status(201).json({data:rows[0]});
 }));
 app.patch('/api/tickets/:id',requireAuth,requireRole(...STAFF),asyncRoute(async(req,res)=>{
@@ -194,8 +193,8 @@ app.post('/api/tickets/:id/comments',requireAuth,asyncRoute(async(req,res)=>{
   const {rows}=await pool.query(`UPDATE tickets SET comments=comments||$1::jsonb,updated_at=now()
     WHERE id=$2 AND jsonb_array_length(comments)<100${self.role==='Solicitante'?' AND requester_email=$3':''}
     RETURNING ${ticketFields}`,[JSON.stringify([comment]),id,...(self.role==='Solicitante'?[self.email]:[])]);
-  if(!rows.length){res.status(404).json({error:'Ticket no encontrado, sin acceso o límite de comentarios alcanzado'});return;}
-  res.status(201).json({data:rows[0]});
+  if(!rows.length){res.status(self.role==='Solicitante'?403:404).json({error:'Ticket no disponible o límite de comentarios alcanzado'});return;}
+  res.status(201).json({data:self.role==='Solicitante'?requestView(rows[0]):rows[0]});
 }));
 registerV23Routes(app);
 app.use((_req,res)=>res.status(404).json({error:'Ruta no encontrada'}));

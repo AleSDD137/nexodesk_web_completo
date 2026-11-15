@@ -45,7 +45,7 @@ loginForm.addEventListener('submit',async e=>{
       localStorage.setItem('nexodesk-v21-mode','demo');
       window.NexoAuth.setDemo();
     }
-    location.href='dashboard.html';
+    location.href=window.NexoAuth.isSelfService()?'dashboard.html#portal':'dashboard.html';
   }catch(err){errorMessage.textContent=err.message||'No fue posible iniciar sesión. Revisá el servidor y PostgreSQL.';}
   finally{submit.disabled=false;}
 });

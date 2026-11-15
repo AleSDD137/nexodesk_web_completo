@@ -96,7 +96,9 @@ class SharedModulesUI(unittest.TestCase):
                             self.assertEqual(root.locator('.nx-metrics article').count(), 4)
                         else:
                             self.assertEqual(root.locator('[data-guide]').count(), 4)
-                        shape = root.evaluate("""e => [...e.querySelectorAll('h2,h3,form,label,thead th')].map(n =>
+                        # Identity and priority controls belong exclusively to Demo.
+                        # The API form uses the authenticated identity/server defaults.
+                        shape = root.evaluate("""e => [...e.querySelectorAll('h2,h3,form,label:not([data-demo-only]),thead th')].map(n =>
                             [n.tagName,n.id,n.tagName==='LABEL' ? n.firstChild.textContent.trim() :
                             n.tagName==='FORM' ? '' : n.textContent.trim()])""")
                         if mode == 'demo':

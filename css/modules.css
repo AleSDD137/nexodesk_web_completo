@@ -85,10 +85,51 @@
   overflow-y: auto;
 }
 .nx-module-dialog::backdrop { background: #020812c9; }
+.main-nav[hidden],
+.nx-sync-controls[hidden],
+.search-box[hidden] { display: none; }
+.nx-requester .sidebar { background: #0d1d2d; }
+.nx-requester .topbar { justify-content: space-between; }
+.nx-requester .top-actions { margin-left: auto; }
+.nx-requester .nx-auth-note,
+.nx-requester .nx-sync {
+  background: #153243;
+  border-color: #416476;
+  color: #d7efed;
+}
+.nx-requester .nx-sync :is(strong,p) { color: #d7efed; }
+.nx-requester .page-heading { gap: 16px; flex-wrap: wrap; }
+.nx-requester :is(.nav-item,.logout-link):focus-visible {
+  outline: 2px solid #59ded5;
+  outline-offset: 3px;
+}
+.nx-requester .nav-item { color: #b9cfdd; }
+.nx-requester .nav-item:is(:hover,.active) { color: #f1ffff; }
+.nx-workspace [data-portal-heading] { scroll-margin-top: 20px; }
+.nx-workspace [data-portal-heading]:focus-visible { outline: 2px solid #59ded5; outline-offset: 4px; }
+.nx-workspace .nx-public-comments article {
+  padding: 12px;
+  margin: 10px 0;
+  border: 1px solid #416476;
+  border-radius: 8px;
+  background: #102332;
+}
+.nx-workspace .nx-public-comments :is(p,small) { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+.nx-workspace .nx-public-comments p { color: #e8f4fa; }
+.nx-workspace .nx-public-comments small { color: #aec4d3; }
+.nx-account-workspace .inline-form { background: #142b3b; border: 1px solid #416476; }
+.nx-account-workspace .inline-form .muted { color: #aec4d3; }
+.nx-account-details { display: grid; grid-template-columns: max-content minmax(0,1fr); gap: 12px 20px; }
+.nx-account-details dt { color: #aec4d3; }
+.nx-account-details dd { margin: 0; overflow-wrap: anywhere; }
 .nx-module-dialog .nx-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .nx-module-dialog .nx-modal-actions { display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
 @media (max-width: 760px) {
   .app-shell:has(.alternate-view:not(.hidden) .nx-workspace) { grid-template-columns: minmax(0,1fr); }
+  .nx-requester .sidebar { min-width: 0; }
+  .nx-requester #requesterNav { min-width: 0; flex-wrap: wrap; overflow: visible; }
+  .nx-requester .page-heading .primary-button { width: 100%; justify-content: center; }
+  .nx-account-details { grid-template-columns: minmax(0,1fr); gap: 6px; }
 }
 @media (max-width: 620px) {
   .nx-module-status { align-items: flex-start; flex-direction: column; }

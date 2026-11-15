@@ -18,6 +18,7 @@
   const requester=()=>window.NexoAuth?.isRequester();
 
   async function changeMode(selected){
+    if(window.NexoAuth.isSelfService())selected='api';
     if(selected==='api' && !window.NexoAuth.user){
       alert('Para utilizar PostgreSQL tenés que iniciar sesión con una cuenta real.');
       location.href='login.html';return;
@@ -34,6 +35,13 @@
       return;
     }
     ctx.setTickets([]);status('Validando sesión y cargando tickets…','loading');
+    if(window.NexoAuth.isSelfService()){
+      // El Portal consulta sus propios endpoints; no carga la bandeja IT.
+      ready=true;ctx.render();
+      document.querySelector('#newTicketButton').disabled=false;
+      status('Sesión verificada · Tus solicitudes se guardan en el servidor.');
+      return;
+    }
     const mine=epoch;
     try {
       const response=await window.NexoAuth.api('/tickets');
