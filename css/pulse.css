@@ -1,0 +1,31 @@
+/* Pulse V2.5: alcance exclusivo de la vista compartida. */
+.nx-pulse-workspace { min-width: 0; }
+.nx-pulse-workspace .nx-pulse-symbol { color: #65e8e0; font-size: 72px; line-height: 1; }
+.nx-pulse-workspace .nx-pulse-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin: 0 0 16px; }
+.nx-pulse-workspace .nx-pulse-filters label { display: grid; gap: 7px; color: #c7dbe6; font-size: 12px; }
+.nx-pulse-workspace .nx-pulse-filters input { border: 1px solid #648497; border-radius: 8px; padding: 9px 11px; font: inherit; }
+.nx-pulse-workspace .nx-pulse-metrics { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.nx-pulse-workspace .nx-pulse-metrics span { color: #aec4d3; }
+.nx-pulse-workspace .nx-pulse-table { min-width: 440px; }
+.nx-pulse-workspace .nx-pulse-levels { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.nx-pulse-workspace .nx-pulse-levels article { display: grid; gap: 8px; border: 1px solid #416476; background: #173545; padding: 16px; border-radius: 10px; }
+.nx-pulse-workspace .nx-pulse-levels span { color: #b9d2e0; font-size: 12px; }
+.nx-pulse-workspace .nx-pulse-levels strong { color: #edfbff; font-size: 30px; }
+.nx-pulse-workspace .nx-pulse-feed { padding: 0; margin: 0 0 16px; list-style: none; }
+.nx-pulse-workspace .nx-pulse-event { display: grid; grid-template-columns: 28px minmax(0,1fr); gap: 10px; padding: 16px 0; border-bottom: 1px solid #416476; }
+.nx-pulse-workspace .nx-pulse-event-mark { display: grid; place-items: center; align-self: start; width: 26px; height: 26px; color: #9cefe7; background: #204652; border: 1px solid #527b8f; border-radius: 50%; }
+.nx-pulse-workspace .nx-pulse-event h4 { font-size: 13px; margin: 0 0 8px; }
+.nx-pulse-workspace .nx-pulse-event p { margin: 8px 0 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
+.nx-pulse-workspace .nx-pulse-meta { color: #aec4d3; }
+.nx-pulse-workspace .nx-pulse-changes { color: #d5ebf2; }
+.nx-pulse-workspace .nx-text-btn { text-align: left; overflow-wrap: anywhere; white-space: normal; }
+.nx-pulse-workspace .nx-table-wrap:focus-visible { outline: 2px solid #59ded5; outline-offset: 3px; }
+@media(max-width:768px) {
+  .nx-pulse-workspace .nx-pulse-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .nx-pulse-workspace .nx-bar-row { grid-template-columns: 105px minmax(0,1fr) 40px; gap: 8px; }
+}
+@media(max-width:430px) {
+  .nx-pulse-workspace .nx-pulse-filters label { width: 100%; }
+  .nx-pulse-workspace .nx-pulse-filters button { flex: 1; white-space: normal; }
+  .nx-pulse-workspace .nx-pulse-symbol { display: none; }
+}

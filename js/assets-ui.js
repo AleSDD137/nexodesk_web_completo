@@ -29,7 +29,12 @@
     if (mountedEditor && !active(mountedEditor.mode)) closeEditor(mountedEditor, mountedEditor.state.busy, false);
   }).observe(document.body, {subtree:true, childList:true, attributes:true, attributeFilter:['class','hidden']});
 
-  async function render(ctx, root) {
+  function render(ctx,root){
+    const mode=modeNow(),pending=renderView(ctx,root);
+    const context=contexts.get(mode);if(context)context.pending=pending;
+    return pending;
+  }
+  async function renderView(ctx, root) {
     if (!root) return;
     const mode = modeNow(), state = stateFor(mode), token = ++generation;
     contexts.set(mode, {ctx, root});
@@ -192,5 +197,18 @@
     dialog.showModal();
     form.querySelector('[name="brand"]').focus();
   }
-  window.NexoAssets = {render};
+  async function open(id){
+    const mode=modeNow(),context=contexts.get(mode);
+    if(!context||!active(mode)||mode==='api'&&!staff())throw Error('Acceso no disponible.');
+    await context.pending;
+    const state=stateFor(mode);
+    if(!active(mode)||state.busy||state.loading||state.requiresReload)throw Error('Esperá a que termine la operación actual.');
+    let asset=state.items.find(item=>String(item.id)===String(id));
+    if(!asset&&mode==='api')asset=(await window.NexoAuth.api(`/relations/assets/${Number(id)}?limit=1`)).data.asset;
+    if(!asset&&mode==='demo')asset=window.NexoV12.assets().find(item=>String(item.id)===String(id));
+    if(!active(mode))return;
+    if(!asset)throw Error('Activo no encontrado.');
+    openEditor(context.ctx,context.root,mode,state,window.NexoModulesData.assets(mode,context.ctx),asset,context.root.querySelector('#nxAddAsset'));
+  }
+  window.NexoAssets = {render,open};
 })();

@@ -184,14 +184,24 @@ function showToast(message) {
   toast.textContent = message; toast.classList.add("show");
   clearTimeout(toastTimeout); toastTimeout = setTimeout(() => toast.classList.remove("show"), 2800);
 }
-function openTicket(id) {
+let ticketOpenSequence=0;
+async function openTicket(id) {
+  const request=++ticketOpenSequence,originView=currentView;
   if(window.NexoAuth.isSelfService()){
     navigate('portal-requests');
     const input=document.querySelector('#nxLookupId');
     if(input){input.value=String(id);input.dispatchEvent(new Event('input'));document.querySelector('#nxLookup').click();}
     return;
   }
-  const ticket=tickets.find(item=>item.id===Number(id)); if(!ticket)return;
+  let ticket=tickets.find(item=>item.id===Number(id));
+  if(!ticket&&window.NexoBridge?.isServer()){
+    try {
+      ticket=await window.NexoBridge.fetchTicket(id);
+      if(request!==ticketOpenSequence||currentView!==originView)return;
+      tickets.push(ticket);
+    }catch(error){if(request===ticketOpenSequence&&currentView===originView)showToast(`No se pudo abrir el ticket: ${error.message}`);return;}
+  }
+  if(!ticket){showToast('Ese ticket no está disponible en el origen actual.');return;}
   const readOnly=window.NexoBridge?.isServer() && window.NexoAuth.isRequester();
   const apiComments=window.NexoBridge?.isServer();
   const commentKey=`${window.NexoAuth.user?.id || 'demo'}:${ticket.id}`;
@@ -277,6 +287,12 @@ document.querySelectorAll('.nav-item').forEach(button=>button.addEventListener('
   navigate(button.dataset.portalSection?`portal-${button.dataset.portalSection}`:button.dataset.view);
 }));
 window.addEventListener('nexodesk:open-view',event=>navigate(event.detail));
+window.addEventListener('nexodesk:open-asset',async event=>{
+  if(!window.NexoAuth.canAccessView('assets')){navigate('portal');return;}
+  navigate('assets');
+  try {await window.NexoAssets.open(event.detail);}
+  catch(error){showToast(`No se pudo abrir el activo: ${error.message}`);}
+});
 window.addEventListener('hashchange',()=>navigate(location.hash.slice(1),{replace:true}));
 searchInput.addEventListener("input", render);
 priorityFilter.addEventListener("change", render);
@@ -301,7 +317,8 @@ document.querySelector("#resetButton").addEventListener("click", () => {
   if (!confirm("¿Restablecer los tickets de demostración? Se perderán los cambios guardados en este navegador.")) return;
   tickets = initialTickets.map(ticket => ({...ticket})); saveTickets(); render(); showToast("Demo restablecida.");
 });
-document.querySelector("#closeDetail").addEventListener("click",()=>document.querySelector("#detailDialog").close());
+document.querySelector("#closeDetail").addEventListener("click",()=>{++ticketOpenSequence;document.querySelector("#detailDialog").close();});
+document.querySelector('#detailDialog').addEventListener('cancel',()=>{++ticketOpenSequence;});
 board.addEventListener("dragstart",e=>{if(window.NexoBridge?.isServer() && window.NexoAuth.isRequester()){e.preventDefault();return;}const card=e.target.closest("[data-ticket-id]");if(!card)return;e.dataTransfer.setData("text/plain",card.dataset.ticketId);e.dataTransfer.effectAllowed="move";});
 board.addEventListener("dragover",e=>{const column=e.target.closest("[data-status]");if(column){e.preventDefault();e.dataTransfer.dropEffect="move";}});
 board.addEventListener("drop",e=>{if(window.NexoBridge?.isServer() && (!window.NexoBridge.isReady() || window.NexoAuth.isRequester())){e.preventDefault();return;}const column=e.target.closest("[data-status]");if(!column)return;e.preventDefault();const id=Number(e.dataTransfer.getData("text/plain"));const ticket=tickets.find(t=>t.id===id);if(ticket&&columns.some(c=>c.key===column.dataset.status)){ticket.status=column.dataset.status;saveTickets();render();showToast(`Ticket #${id} movido a ${ticket.status}.`);}});

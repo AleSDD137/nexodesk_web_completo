@@ -1,0 +1,36 @@
+erDiagram
+    users ||--o{ auth_sessions : "user_id"
+    users o|--o{ assets : "owner_user_id (006)"
+    tickets o|--o{ assets : "ticket_id principal (004)"
+    assets ||--o{ asset_ticket_links : "asset_id (006)"
+    tickets ||--o{ asset_ticket_links : "ticket_id (006)"
+    users o|--o{ asset_ticket_links : "created_by (006)"
+    tickets ||--o| triage_cases : "ticket_id"
+    users o|--o{ triage_cases : "updated_by"
+    triage_cases ||--o{ triage_tests : "ticket_id"
+    users o|--o{ triage_tests : "created_by"
+    triage_cases ||--o{ triage_events : "ticket_id"
+    users o|--o{ triage_events : "created_by"
+    tickets ||--o{ ticket_events : "ticket_id"
+    users o|--o{ ticket_events : "actor_id"
+    tickets ||--o{ ticket_internal_notes : "ticket_id"
+    users o|--o{ ticket_internal_notes : "author_id"
+    assets {
+        bigint id PK
+        bigint ticket_id FK "nullable, principal preservado"
+        bigint owner_user_id FK "nullable, asociacion explicita 006"
+        varchar owner_name "texto historico preservado"
+    }
+    asset_ticket_links {
+        bigint asset_id PK,FK
+        bigint ticket_id PK,FK
+        bigint created_by FK "nullable"
+        timestamptz created_at "servidor"
+    }
+    tickets {
+        bigint id PK
+        varchar requester "texto, no FK"
+        varchar requester_email "identificacion previa, no FK"
+        varchar assignee "texto, no FK"
+        jsonb comments "comentarios publicos previos"
+    }

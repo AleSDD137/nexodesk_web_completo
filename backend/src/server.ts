@@ -6,6 +6,8 @@ import { pool } from './db.js';
 import { registerV23Routes } from './modules-v23.js';
 import { requestFields, requestView } from './portal-response.js';
 import { registerActivityRoutes } from './ticket-activity.js';
+import { registerPulseRoutes } from './pulse.js';
+import { registerRelationsRoutes } from './relations.js';
 import { changedValues, recordChanges, recordCreated, transaction } from './ticket-audit.js';
 import {
   hashPassword, verifyPassword, passwordError, issueSession, revokeSession, revokeUserSessions,
@@ -221,6 +223,8 @@ app.post('/api/tickets/:id/comments',requireAuth,asyncRoute(async(req,res)=>{
 }));
 registerV23Routes(app);
 registerActivityRoutes(app);
+registerPulseRoutes(app);
+registerRelationsRoutes(app);
 app.use((_req,res)=>res.status(404).json({error:'Ruta no encontrada'}));
 const errors:ErrorRequestHandler=(err:unknown,_req,res,_next)=>{
   if(err instanceof ZodError){res.status(400).json({error:'Datos inválidos',details:err.issues.map(i=>({field:i.path.join('.'),message:i.message}))});return;}

@@ -121,6 +121,15 @@
     if(current)current.comments=data.data.comments;
     shadow.set(Number(id),normal(data.data));ctx.render();
   }
+  async function fetchTicket(id){
+    if(mode!=='api'||!ready||failed)throw Error('Sin conexión al servidor');
+    const mine=epoch;
+    const result=await window.NexoAuth.api(`/tickets/${Number(id)}`);
+    if(mine!==epoch||mode!=='api')throw Error('El origen de datos cambió durante la consulta.');
+    const ticket=normal(result.data);
+    shadow.set(ticket.id,clone(ticket));
+    return ticket;
+  }
   function init(context){
     ctx=context;
     document.querySelector('#nxDataMode').addEventListener('change',e=>{
@@ -140,5 +149,5 @@
     mode=window.NexoAuth.sessionMode==='api'?'api':'demo';
     void changeMode(mode);
   }
-  window.NexoBridge={init,isServer:()=>mode==='api',save,addComment,reload:()=>changeMode(mode),isReady:()=>ready&&!failed};
+  window.NexoBridge={init,isServer:()=>mode==='api',save,addComment,fetchTicket,reload:()=>changeMode(mode),isReady:()=>ready&&!failed};
 })();
