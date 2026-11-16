@@ -9,7 +9,7 @@
     "db:migrate": "tsx src/migrate.ts",
     "db:seed": "tsx src/seed.ts",
     "auth:bootstrap": "tsx src/bootstrap.ts",
-    "test": "node --experimental-strip-types --test src/password.test.ts"
+    "test": "node --import tsx --test src/*.test.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

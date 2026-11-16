@@ -130,7 +130,7 @@ function renderTable() {
 function renderAlternate() {
  const view=document.querySelector("#alternateView");
  if(currentView==="relaciones"){window.NexoV13.render({tickets,users,openTicket,showToast,render});return;}
- if(currentView==="intelligence"){window.NexoV14.render({tickets,openTicket,showToast});return;}
+ if(currentView==="intelligence"){window.NexoIntelligence.render({tickets,openTicket,showToast});return;}
  if(currentView==="triage"){window.NexoV15.render({tickets,users,openTicket,showToast,saveTickets,render});return;}
  if(["pulse","assets","portal"].includes(currentView)){window.NexoV12.render(currentView,{tickets,users,escapeHtml,showToast,openTicket,saveTickets,render});return;}
  if(currentView==="tickets"){view.innerHTML=renderTable();return;}
@@ -218,7 +218,7 @@ async function openTicket(id) {
     <label>Descripción<textarea id="detailDescription" rows="3">${escapeHtml(ticket.description)}</textarea></label>
     <h3>Comentarios públicos</h3>${apiComments ? '<p class="nx-activity-hint">Los comentarios públicos aparecen en Actividad.</p>' : `<div class="comment-list">${(ticket.comments||[]).map(c=>`<div class="comment"><strong>${escapeHtml(c.author)}</strong><small>${escapeHtml(c.date)}</small><p>${escapeHtml(c.text)}</p></div>`).join("")||'<p class="muted">Sin comentarios todavía.</p>'}</div>`}
     <form id="commentForm" aria-busy="${apiComments && commentState.busy}"><label>Agregar comentario<textarea name="comment" rows="2" required maxlength="2000" placeholder="Escribí una actualización..." ${apiComments && commentState.busy ? 'disabled' : ''}>${apiComments ? escapeHtml(commentState.text) : ''}</textarea></label><button class="secondary-button" type="submit" ${apiComments && commentState.busy ? 'disabled' : ''}>Publicar comentario</button><p id="publicCommentFeedback" class="nx-activity-hint" role="status">${apiComments ? escapeHtml(commentState.busy ? 'Guardando comentario público…' : commentState.error || commentState.notice) : ''}</p></form>
-    <div class="dialog-actions"><button class="primary-button" type="button" id="saveDetail">Guardar cambios</button></div><div id="ticketActivity"></div>`;
+    <div class="dialog-actions"><button class="primary-button" type="button" id="saveDetail">Guardar cambios</button></div><div id="ticketActivity"></div><div id="ticketIntelligence"></div>`;
   if(readOnly){
     detail.querySelectorAll("select, input, textarea:not([name=comment])").forEach(el=>el.disabled=true);
     detail.querySelector("#saveDetail").hidden=true;
@@ -262,6 +262,7 @@ async function openTicket(id) {
   });
   const dialog=document.querySelector("#detailDialog");if(!dialog.open)dialog.showModal();
   window.NexoTicketActivity?.mount({ticketId:ticket.id,root:detail.querySelector('#ticketActivity'),dialog});
+  window.NexoIntelligence?.mount({ticketId:ticket.id,root:detail.querySelector('#ticketIntelligence'),dialog,ctx:{tickets,openTicket}});
 }
 document.querySelector("#newTicketButton").addEventListener("click", () => {
   if(window.NexoAuth.isSelfService()){navigate('portal-create');return;}

@@ -37,7 +37,7 @@ const pool=new pg.Pool({connectionString:process.env.DATABASE_URL});
 try {
   const {rows}=await pool.query('SELECT current_database() AS name');
   if(!rows[0].name.startsWith('nexodesk_test_'))throw Error('Refusing non-test database');
-  for(const file of ['001_init.sql','002_frontend_compat.sql','003_auth.sql','004_assets_triage_portal.sql','005_ticket_activity.sql','006_relations_pulse.sql'])
+  for(const file of ['001_init.sql','002_frontend_compat.sql','003_auth.sql','004_assets_triage_portal.sql','005_ticket_activity.sql','006_relations_pulse.sql','007_intelligence.sql'])
     await pool.query(await readFile('sql/'+file,'utf8'));
   const run=randomBytes(8).toString('hex'),accounts={};
   for(const [key,role,level] of [['requester','Solicitante',null],['other','Solicitante',null],
@@ -80,7 +80,7 @@ class RequesterPortal(unittest.TestCase):
         cls.addClassCleanup(cls.server.server_close)
         cls.addClassCleanup(cls.server.shutdown)
         cls.origin = f'http://127.0.0.1:{cls.server.server_port}'
-        env = dict(os.environ, DATABASE_URL=DATABASE, FRONTEND_ORIGIN=cls.origin, HOST='127.0.0.1', PORT='3001')
+        env = dict(os.environ, DATABASE_URL=DATABASE, FRONTEND_ORIGIN=cls.origin, HOST='127.0.0.1', PORT='3001', INTELLIGENCE_EXTERNAL_ENABLED='false', SLA_CHECK_INTERVAL_SECONDS='0')
         seed = subprocess.run(['node', '--experimental-strip-types', '--input-type=module', '-e', FIXTURES],
                               cwd=ROOT / 'backend', env=env, capture_output=True, text=True)
         if seed.returncode:
