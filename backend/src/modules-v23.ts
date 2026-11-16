@@ -6,6 +6,8 @@ import { z } from 'zod';
 import { pool } from './db.js';
 import { requireAuth, requireRole, STAFF } from './auth.js';
 import { requestFields, requestView } from './portal-response.js';
+import { enrollTicketSla } from './sla.js';
+import { recordAssetChange } from './inventory-history.js';
 import { changedValues, recordChanges, recordCreated, transaction } from './ticket-audit.js';
 
 const route = (fn:(req:Request,res:Response)=>Promise<void>):RequestHandler =>
@@ -58,18 +60,28 @@ export function registerV23Routes(app:Express):void {
   }));
   app.post('/api/assets',requireAuth,requireRole(...STAFF),route(async(req,res)=>{
     const a=assetBody.parse(req.body);
-    const {rows}=await pool.query(`INSERT INTO assets(kind,brand,serial,owner_name,location,state,ticket_id)
-      VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING ${assetFields}`,
-      [a.kind,a.brand,a.serial,a.owner,a.location,a.state,a.ticketId]);
-    res.status(201).json({data:rows[0]});
+    const saved=await transaction(async client=>{
+      const {rows}=await client.query(`INSERT INTO assets(kind,brand,serial,owner_name,location,state,ticket_id)
+        VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING ${assetFields}`,
+        [a.kind,a.brand,a.serial,a.owner,a.location,a.state,a.ticketId]);
+      await recordAssetChange(client,{},rows[0],req.currentUser!,'created');
+      return rows[0];
+    });
+    res.status(201).json({data:saved});
   }));
   app.patch('/api/assets/:id',requireAuth,requireRole(...STAFF),route(async(req,res)=>{
     const id=idParam(req.params.id);const a=assetBody.parse(req.body);
-    const {rows}=await pool.query(`UPDATE assets SET kind=$1,brand=$2,serial=$3,owner_name=$4,
-      location=$5,state=$6,ticket_id=$7,updated_at=now() WHERE id=$8 RETURNING ${assetFields}`,
-      [a.kind,a.brand,a.serial,a.owner,a.location,a.state,a.ticketId,id]);
-    if(!rows.length){res.status(404).json({error:'Activo no encontrado'});return;}
-    res.json({data:rows[0]});
+    const saved=await transaction(async client=>{
+      const previous=await client.query(`SELECT ${assetFields} FROM assets WHERE id=$1 FOR UPDATE`,[id]);
+      if(!previous.rowCount)return null;
+      const {rows}=await client.query(`UPDATE assets SET kind=$1,brand=$2,serial=$3,owner_name=$4,
+        location=$5,state=$6,ticket_id=$7,updated_at=clock_timestamp() WHERE id=$8 RETURNING ${assetFields}`,
+        [a.kind,a.brand,a.serial,a.owner,a.location,a.state,a.ticketId,id]);
+      await recordAssetChange(client,previous.rows[0],rows[0],req.currentUser!,'updated');
+      return rows[0];
+    });
+    if(!saved){res.status(404).json({error:'Activo no encontrado'});return;}
+    res.json({data:saved});
   }));
 
   app.get('/api/triage/assignees',requireAuth,requireRole(...STAFF),route(async(_req,res)=>{
@@ -179,6 +191,7 @@ export function registerV23Routes(app:Express):void {
         'Sin asignar','[]'::jsonb,'Portal') RETURNING id,title,type,priority,status,description,requester,assignee,created_at AS "createdAt"`,
         [t.title,t.description,t.type,self.name,self.email]);
       await recordCreated(client,rows[0],self,'portal.create');
+      await enrollTicketSla(client,rows[0].id,rows[0].priority,rows[0].createdAt);
       const {description:_description,requester:_requester,assignee:_assignee,...publicResult}=rows[0];
       return publicResult;
     });

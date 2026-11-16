@@ -8,6 +8,10 @@ import { requestFields, requestView } from './portal-response.js';
 import { registerActivityRoutes } from './ticket-activity.js';
 import { registerPulseRoutes } from './pulse.js';
 import { registerRelationsRoutes } from './relations.js';
+import { registerReportRoutes } from './reports.js';
+import { registerInventoryRoutes } from './inventory.js';
+import { registerIntelligenceRoutes } from './intelligence.js';
+import { registerSlaRoutes, startSlaWorker, enrollTicketSla, recordSlaResponse, recordSlaStatus } from './sla.js';
 import { changedValues, recordChanges, recordCreated, transaction } from './ticket-audit.js';
 import {
   hashPassword, verifyPassword, passwordError, issueSession, revokeSession, revokeUserSessions,
@@ -19,6 +23,7 @@ app.disable('x-powered-by');
 const origins = (process.env.FRONTEND_ORIGIN ?? 'http://127.0.0.1:5500,http://localhost:5500')
   .split(',').map(s => s.trim()).filter(Boolean);
 app.use(cors({origin(origin,cb){ cb(null,!origin || origins.includes(origin)); },credentials:true}));
+app.use('/api/inventory/import',express.json({limit:'128kb'}));
 app.use(express.json({limit:'32kb'}));
 const asyncRoute = (fn: (req:express.Request,res:express.Response)=>Promise<void>):RequestHandler =>
   (req,res,next)=>{Promise.resolve(fn(req,res)).catch(next);};
@@ -181,6 +186,8 @@ app.post('/api/tickets',requireAuth,requireRole(...STAFF),asyncRoute(async(req,r
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,'[]'::jsonb,$9) RETURNING ${ticketFields}`,
       [data.title,data.description,data.type,data.priority,data.status,data.requester,data.requesterEmail??null,data.assignee,data.source]);
     await recordCreated(client,rows[0],req.currentUser!,'staff.create');
+    await enrollTicketSla(client,rows[0].id,rows[0].priority,rows[0].createdAt);
+    if(rows[0].status==='Cerrado')await recordSlaStatus(client,rows[0].id,'Cerrado');
     return rows[0];
   });
   res.status(201).json({data:ticket});
@@ -199,6 +206,7 @@ app.patch('/api/tickets/:id',requireAuth,requireRole(...STAFF),asyncRoute(async(
     const {rows}=await client.query(`UPDATE tickets SET ${updates.join(',')},updated_at=clock_timestamp()
       WHERE id=$${values.length} RETURNING ${ticketFields}`,values);
     await recordChanges(client,id,before,rows[0],req.currentUser!,'staff.update');
+    if(changes.status)await recordSlaStatus(client,id,rows[0].status);
     return rows[0];
   });
   if(!ticket){res.status(404).json({error:'Ticket no encontrado'});return;}
@@ -216,6 +224,7 @@ app.post('/api/tickets/:id/comments',requireAuth,asyncRoute(async(req,res)=>{
       'author',$1::text,'authorId',$2::bigint,'date',to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
       'text',$3::text)),updated_at=clock_timestamp() WHERE id=$4 RETURNING ${ticketFields}`,
       [self.name,self.id,input.text,id]);
+    if(self.role!=='Solicitante')await recordSlaResponse(client,id,self.id);
     return rows[0];
   });
   if(!ticket){res.status(self.role==='Solicitante'?403:404).json({error:'Ticket no disponible o límite de comentarios alcanzado'});return;}
@@ -225,8 +234,13 @@ registerV23Routes(app);
 registerActivityRoutes(app);
 registerPulseRoutes(app);
 registerRelationsRoutes(app);
+registerIntelligenceRoutes(app);
+registerSlaRoutes(app);
+registerInventoryRoutes(app);
+registerReportRoutes(app);
 app.use((_req,res)=>res.status(404).json({error:'Ruta no encontrada'}));
 const errors:ErrorRequestHandler=(err:unknown,_req,res,_next)=>{
+  if(err&&typeof err==='object'&&'type' in err&&err.type==='entity.too.large'){res.status(413).json({error:'La solicitud supera el tamaño permitido'});return;}
   if(err instanceof ZodError){res.status(400).json({error:'Datos inválidos',details:err.issues.map(i=>({field:i.path.join('.'),message:i.message}))});return;}
   if(err instanceof SyntaxError && 'body' in err){res.status(400).json({error:'JSON inválido'});return;}
   if(err&&typeof err==='object'&&'code'in err&&(err as {code:string}).code==='23505'){
@@ -240,5 +254,7 @@ const errors:ErrorRequestHandler=(err:unknown,_req,res,_next)=>{
 app.use(errors);
 const host=process.env.HOST??'127.0.0.1';const port=Number(process.env.PORT??3001);
 if(!Number.isInteger(port)||port<1||port>65535)throw Error('Puerto inválido');
-const server=app.listen(port,host,()=>console.log(`NEXODESK API V2.4 en http://${host}:${port}`));
+const server=app.listen(port,host,()=>console.log(`NEXODESK API en http://${host}:${port}`));
+const slaWorker=startSlaWorker();
+server.on('close',()=>{if(slaWorker)clearInterval(slaWorker);});
 process.on('SIGINT',()=>server.close(()=>{void pool.end().then(()=>process.exit(0));}));

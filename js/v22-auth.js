@@ -7,7 +7,7 @@
   let user=null;
   let currentMode=sessionStorage.getItem(ACCESS_KEY)==='api'?'api':'demo';
   let source='demo';
-  const limitedViews=['intelligence'];
+  const limitedViews=[];
   const safe = value => String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
   async function api(path, options={}) {
@@ -62,7 +62,7 @@
   function canAccessView(view){
     if(isSelfService())return ['portal','cuenta'].includes(view);
     if(source!=='api')return true;
-    return !limitedViews.includes(view) && (view!=='usuarios'||['Administrador','Coordinador'].includes(user?.role));
+    return !limitedViews.includes(view) && (!['usuarios','reportes'].includes(view)||['Administrador','Coordinador'].includes(user?.role));
   }
   function isRequester(){return source==='api' && user?.role==='Solicitante';}
   function canEdit(){return source!=='api'||(user && user.role!=='Solicitante');}
@@ -95,7 +95,7 @@
     if(warning)warning.textContent=selfService
       ? `Hola, ${user.name}. Registrá solicitudes y consultá su estado desde tu Portal. Tu sesión identifica cada solicitud.`
       : source==='api'
-      ? `Sesión real: ${user?.name||'usuario'} · ${user?.role||''}${user?.supportLevel?' L'+user.supportLevel:''}. Tickets, Assets, Triage, Portal, Pulse y Relaciones IT utilizan PostgreSQL. Intelligence conserva su demo local.`
+      ? `Sesión real: ${user?.name||'usuario'} · ${user?.role||''}${user?.supportLevel?' L'+user.supportLevel:''}. Tickets, Assets, Triage, Portal, Pulse y Relaciones IT utilizan PostgreSQL. Intelligence ofrece asistencia técnica con antecedentes de PostgreSQL.`
       : 'Demo: cualquier correo válido (sin autenticación). La información se guarda solo en este navegador.';
     if(user && source==='api'){
       const name=document.querySelector('#profileName');if(name)name.textContent=user.name;
