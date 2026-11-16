@@ -1,0 +1,116 @@
+erDiagram
+    users ||--o{ auth_sessions : "user_id"
+    users o|--o{ assets : "owner_user_id (006)"
+    tickets o|--o{ assets : "ticket_id principal (004)"
+    assets ||--o{ asset_ticket_links : "asset_id (006)"
+    tickets ||--o{ asset_ticket_links : "ticket_id (006)"
+    users o|--o{ asset_ticket_links : "created_by (006)"
+    tickets ||--o| triage_cases : "ticket_id"
+    users o|--o{ triage_cases : "updated_by"
+    triage_cases ||--o{ triage_tests : "ticket_id"
+    users o|--o{ triage_tests : "created_by"
+    triage_cases ||--o{ triage_events : "ticket_id"
+    users o|--o{ triage_events : "created_by"
+    tickets ||--o{ ticket_events : "ticket_id"
+    users o|--o{ ticket_events : "actor_id"
+    tickets ||--o{ ticket_internal_notes : "ticket_id"
+    users o|--o{ ticket_internal_notes : "author_id"
+    assets {
+        bigint id PK
+        bigint ticket_id FK "nullable, principal preservado"
+        bigint owner_user_id FK "nullable, asociacion explicita 006"
+        varchar owner_name "texto historico preservado"
+    }
+    asset_ticket_links {
+        bigint asset_id PK,FK
+        bigint ticket_id PK,FK
+        bigint created_by FK "nullable"
+        timestamptz created_at "servidor"
+    }
+    tickets {
+        bigint id PK
+        varchar requester "texto, no FK"
+        varchar requester_email "identificacion previa, no FK"
+        varchar assignee "texto, no FK"
+        jsonb comments "comentarios publicos previos"
+    }
+
+    %% Nuevas relaciones reales 007-009; los campos JSONB conservan snapshots.
+    tickets ||--o{ intelligence_runs : "ticket_id"
+    users o|--o{ intelligence_runs : "requested_by"
+    intelligence_runs ||--o| intelligence_suggestions : "run_id UNIQUE"
+    tickets ||--o{ intelligence_suggestions : "ticket_id"
+    users o|--o{ intelligence_suggestions : "decided_by"
+    users o|--o{ sla_policies : "updated_by"
+    tickets ||--o| ticket_sla : "ticket_id PK"
+    ticket_sla ||--o{ sla_alerts : "ticket_id"
+    users o|--o{ sla_alerts : "acknowledged_by"
+    assets ||--o{ asset_events : "asset_id"
+    users o|--o{ asset_events : "actor_id"
+    intelligence_runs {
+        bigint id PK
+        bigint ticket_id FK
+        bigint requested_by FK
+        varchar provider
+        varchar model
+        int reserved_tokens
+        varchar outcome
+        varchar error_code
+        timestamptz created_at
+    }
+    intelligence_suggestions {
+        bigint id PK
+        bigint ticket_id FK
+        bigint run_id FK,UK
+        varchar provider
+        jsonb payload
+        varchar decision
+        bigint decided_by FK
+        timestamptz decided_at
+        timestamptz created_at
+    }
+    sla_policies {
+        varchar priority PK
+        int response_minutes
+        int resolution_minutes
+        varchar timezone
+        int_array weekdays
+        int start_minute
+        int end_minute
+        int warning_minutes
+        boolean escalation_enabled
+        smallint escalation_level
+        boolean enabled
+        bigint updated_by FK
+        timestamptz updated_at
+    }
+    ticket_sla {
+        bigint ticket_id PK,FK
+        jsonb policy "snapshot, no FK a politica editable"
+        timestamptz started_at
+        timestamptz response_due_at
+        timestamptz resolution_due_at
+        timestamptz first_response_at
+        timestamptz resolved_at
+        int cycle
+        timestamptz updated_at
+    }
+    sla_alerts {
+        bigint id PK
+        bigint ticket_id FK
+        int cycle "UNIQUE ticket_id,cycle,kind"
+        varchar kind
+        smallint target_level
+        timestamptz created_at
+        bigint acknowledged_by FK
+        timestamptz acknowledged_at
+    }
+    asset_events {
+        bigint id PK
+        bigint asset_id FK
+        bigint actor_id FK
+        varchar actor_name
+        varchar kind
+        jsonb changes
+        timestamptz created_at
+    }

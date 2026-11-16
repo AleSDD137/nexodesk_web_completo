@@ -1,0 +1,56 @@
+name: NEXODESK verification
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: nexodesk
+          POSTGRES_DB: nexodesk_test_ci
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexodesk -d nexodesk_test_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      NEXODESK_TEST_DATABASE_URL: postgresql://nexodesk@127.0.0.1:5432/nexodesk_test_ci
+      NEXODESK_SCREENSHOTS: /tmp/nexodesk-ci-screenshots
+      INTELLIGENCE_EXTERNAL_ENABLED: "false"
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: npm ci
+        working-directory: backend
+      - run: npm run check
+        working-directory: backend
+      - run: npm test
+        working-directory: backend
+      - run: node --test tests/*.test.cjs
+      - run: pip install -r tests/requirements-browser.txt
+      - run: python -m playwright install --with-deps chromium
+      - run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-test-screenshots
+          path: /tmp/nexodesk-ci-screenshots
+          if-no-files-found: ignore

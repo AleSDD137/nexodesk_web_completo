@@ -96,6 +96,10 @@ class TicketActivityPolish(unittest.TestCase):
                 response = {'user': USER}
             elif path == '/tickets':
                 response = {'data': [TICKET]}
+            elif path == '/intelligence/status':
+                response = {'data': {'provider': 'local', 'externalEnabled': False}}
+            elif path == '/tickets/42/intelligence':
+                response = {'data': []}
             elif path == '/tickets/42/activity':
                 if state['mode'] == 'pending':
                     state['pending'].append(route)
