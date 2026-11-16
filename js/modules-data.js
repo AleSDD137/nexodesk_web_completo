@@ -49,9 +49,11 @@
           throw Object.assign(Error('Ya existe un activo con ese número de serie.'),{status:409});
         }
         const assetId = id ?? `NX-A${String(Math.max(0,...items.map(a => Number(String(a.id).replace('NX-A','')) || 0)) + 1).padStart(3,'0')}`;
-        const item = {...(pos < 0 ? {} : items[pos]),...fields,id:assetId};
+        const before=pos < 0 ? {} : structuredClone(items[pos]);
+        const item = {...before,...fields,id:assetId};
         if (pos < 0) items.push(item); else items[pos] = item;
-        localStorage.setItem(ASSETS,JSON.stringify(items));
+        if(window.NexoInventoryData)window.NexoInventoryData.saveDemoRecord(ASSETS,items,before,item,pos<0?'created':'updated');
+        else localStorage.setItem(ASSETS,JSON.stringify(items));
         track(pos < 0 ? 'Activo creado' : 'Activo actualizado',`${item.id} · ${item.brand}`);
         return structuredClone(item);
       }

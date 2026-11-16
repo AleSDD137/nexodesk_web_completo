@@ -8,6 +8,7 @@ import { requestFields, requestView } from './portal-response.js';
 import { registerActivityRoutes } from './ticket-activity.js';
 import { registerPulseRoutes } from './pulse.js';
 import { registerRelationsRoutes } from './relations.js';
+import { registerInventoryRoutes } from './inventory.js';
 import { registerIntelligenceRoutes } from './intelligence.js';
 import { registerSlaRoutes, startSlaWorker, enrollTicketSla, recordSlaResponse, recordSlaStatus } from './sla.js';
 import { changedValues, recordChanges, recordCreated, transaction } from './ticket-audit.js';
@@ -21,6 +22,7 @@ app.disable('x-powered-by');
 const origins = (process.env.FRONTEND_ORIGIN ?? 'http://127.0.0.1:5500,http://localhost:5500')
   .split(',').map(s => s.trim()).filter(Boolean);
 app.use(cors({origin(origin,cb){ cb(null,!origin || origins.includes(origin)); },credentials:true}));
+app.use('/api/inventory/import',express.json({limit:'128kb'}));
 app.use(express.json({limit:'32kb'}));
 const asyncRoute = (fn: (req:express.Request,res:express.Response)=>Promise<void>):RequestHandler =>
   (req,res,next)=>{Promise.resolve(fn(req,res)).catch(next);};
@@ -233,8 +235,10 @@ registerPulseRoutes(app);
 registerRelationsRoutes(app);
 registerIntelligenceRoutes(app);
 registerSlaRoutes(app);
+registerInventoryRoutes(app);
 app.use((_req,res)=>res.status(404).json({error:'Ruta no encontrada'}));
 const errors:ErrorRequestHandler=(err:unknown,_req,res,_next)=>{
+  if(err&&typeof err==='object'&&'type' in err&&err.type==='entity.too.large'){res.status(413).json({error:'La solicitud supera el tamaño permitido'});return;}
   if(err instanceof ZodError){res.status(400).json({error:'Datos inválidos',details:err.issues.map(i=>({field:i.path.join('.'),message:i.message}))});return;}
   if(err instanceof SyntaxError && 'body' in err){res.status(400).json({error:'JSON inválido'});return;}
   if(err&&typeof err==='object'&&'code'in err&&(err as {code:string}).code==='23505'){

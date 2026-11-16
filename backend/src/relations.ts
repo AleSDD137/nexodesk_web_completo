@@ -2,6 +2,7 @@
 import type { Express, Request, Response, RequestHandler } from 'express';
 import { z } from 'zod';
 import { pool } from './db.js';
+import { recordAssetChange } from './inventory-history.js';
 import { requireAuth, requireRole, STAFF } from './auth.js';
 import { transaction } from './ticket-audit.js';
 
@@ -145,12 +146,14 @@ export function registerRelationsRoutes(app:Express):void {
   app.put('/api/relations/assets/:id/owner',...staff,route(async(req,res)=>{
     const assetId=getId(req.params.id),form=z.object({userId:id.nullable()}).strict().parse(req.body);
     const result=await transaction(async client=>{
-      if(!(await client.query('SELECT id FROM assets WHERE id=$1 FOR UPDATE',[assetId])).rowCount)
+      const previous=await client.query('SELECT id,owner_user_id AS "ownerUserId" FROM assets WHERE id=$1 FOR UPDATE',[assetId]);
+      if(!previous.rowCount)
         return {status:404,error:'Activo no encontrado'};
       if(form.userId!==null && !(await client.query('SELECT id FROM users WHERE id=$1 AND active=true FOR SHARE',[form.userId])).rowCount)
         return {status:400,error:'Elegí una cuenta registrada y activa'};
       await client.query('UPDATE assets SET owner_user_id=$1,updated_at=clock_timestamp() WHERE id=$2',[form.userId,assetId]);
       const {rows}=await client.query(`SELECT ${assetFields} FROM assets a LEFT JOIN users u ON u.id=a.owner_user_id WHERE a.id=$1`,[assetId]);
+      await recordAssetChange(client,previous.rows[0],{id:assetId,ownerUserId:form.userId},req.currentUser!,'owner_linked');
       return {status:200,data:rows[0]};
     });
     if('error'in result){res.status(result.status).json({error:result.error});return;}

@@ -40,7 +40,7 @@ const initialTickets = [
 let tickets = window.NexoAuth.sessionMode==='api'?[]:loadTickets();
 let currentView = "dashboard";
 let portalSection = 'home';
-const viewNames=['dashboard','tickets','procesos','reportes','configuracion','usuarios','pulse','assets','portal','relaciones','intelligence','triage','cuenta','sla'];
+const viewNames=['dashboard','tickets','procesos','reportes','configuracion','usuarios','pulse','assets','portal','relaciones','intelligence','triage','cuenta','sla','inventory'];
 function navigate(route, {replace=false} = {}) {
   const section=String(route).startsWith('portal-')?String(route).slice(7):'home';
   const requested=String(route).startsWith('portal-')?'portal':route;
@@ -131,6 +131,7 @@ function renderTable() {
 }
 function renderAlternate() {
  const view=document.querySelector("#alternateView");
+ if(currentView==="inventory"){window.NexoInventory.render({tickets,users,openTicket,showToast},view);return;}
  if(currentView==="sla"){window.NexoSla.render({tickets,users,openTicket,showToast},view);return;}
  if(currentView==="relaciones"){window.NexoV13.render({tickets,users,openTicket,showToast,render});return;}
  if(currentView==="intelligence"){window.NexoIntelligence.render({tickets,openTicket,showToast});return;}
@@ -173,7 +174,7 @@ function render() {
   document.querySelector("#boardSection").classList.toggle("hidden", !isDashboard);
   document.querySelector(".stats-grid").classList.toggle("hidden", !isDashboard);
   document.querySelector("#alternateView").classList.toggle("hidden", isDashboard);
-  document.querySelector("#pageTitle").textContent = ({dashboard:"Panel de tickets",tickets:"Gestión de tickets",procesos:"Procesos de atención",reportes:"Reportes y métricas",sla:"SLA · Plazos y alertas",configuracion:"Configuración",usuarios:"Usuarios y técnicos",pulse:"Pulse · Centro de operaciones",assets:"Assets · Inventario IT",portal:window.NexoAuth.isSelfService()?"Mi Portal":"Portal · Autoservicio",cuenta:"Mi cuenta",relaciones:"Relaciones · Mapa IT",intelligence:"Intelligence · Análisis de tickets",triage:"Triage · Clasificación y escalamiento"})[currentView];
+  document.querySelector("#pageTitle").textContent = ({dashboard:"Panel de tickets",tickets:"Gestión de tickets",procesos:"Procesos de atención",reportes:"Reportes y métricas",sla:"SLA · Plazos y alertas",inventory:"Assets · Inventario avanzado",configuracion:"Configuración",usuarios:"Usuarios y técnicos",pulse:"Pulse · Centro de operaciones",assets:"Assets · Inventario IT",portal:window.NexoAuth.isSelfService()?"Mi Portal":"Portal · Autoservicio",cuenta:"Mi cuenta",relaciones:"Relaciones · Mapa IT",intelligence:"Intelligence · Análisis de tickets",triage:"Triage · Clasificación y escalamiento"})[currentView];
   document.querySelectorAll('.nav-item').forEach(button=>{
     const active=button.dataset.portalSection?currentView==='portal'&&portalSection===button.dataset.portalSection:button.dataset.view===currentView;
     button.classList.toggle('active',active);

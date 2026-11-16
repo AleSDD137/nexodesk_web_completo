@@ -81,10 +81,10 @@
         links[asset.id]=existing.filter(id=>!same(id,ticketId));localStorage.setItem(EXTRAS,JSON.stringify(links));return {data:{assetId,ticketId}};
       },
       async setOwner(id,userId){
-        const asset=findAsset(id),links=owners();
+        const asset=findAsset(id),links=owners(),before={...asset,ownerUserId:links[asset.id]??null};
         if(userId!=null&&!users().some(u=>same(u.id,userId)&&u.active))throw error('Elegí un usuario registrado y activo.',400);
         if(userId==null)delete links[asset.id];else links[asset.id]=userId;
-        localStorage.setItem(OWNERS,JSON.stringify(links));return {data:enrich(asset)};
+        if(window.NexoInventoryData)window.NexoInventoryData.saveDemoRecord(OWNERS,links,before,{...asset,ownerUserId:userId},'owner_linked');else localStorage.setItem(OWNERS,JSON.stringify(links));return {data:enrich(asset)};
       }
     };
   }
