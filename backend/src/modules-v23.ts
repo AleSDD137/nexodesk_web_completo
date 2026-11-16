@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { pool } from './db.js';
 import { requireAuth, requireRole, STAFF } from './auth.js';
 import { requestFields, requestView } from './portal-response.js';
+import { enrollTicketSla } from './sla.js';
 import { changedValues, recordChanges, recordCreated, transaction } from './ticket-audit.js';
 
 const route = (fn:(req:Request,res:Response)=>Promise<void>):RequestHandler =>
@@ -179,6 +180,7 @@ export function registerV23Routes(app:Express):void {
         'Sin asignar','[]'::jsonb,'Portal') RETURNING id,title,type,priority,status,description,requester,assignee,created_at AS "createdAt"`,
         [t.title,t.description,t.type,self.name,self.email]);
       await recordCreated(client,rows[0],self,'portal.create');
+      await enrollTicketSla(client,rows[0].id,rows[0].priority,rows[0].createdAt);
       const {description:_description,requester:_requester,assignee:_assignee,...publicResult}=rows[0];
       return publicResult;
     });

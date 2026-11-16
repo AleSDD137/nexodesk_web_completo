@@ -37,7 +37,7 @@ const pool=new pg.Pool({connectionString:process.env.DATABASE_URL});
 try {
   const {rows}=await pool.query('SELECT current_database() AS name');
   if(!rows[0].name.startsWith('nexodesk_test_'))throw Error('Refusing non-test database');
-  for(const file of ['001_init.sql','002_frontend_compat.sql','003_auth.sql','004_assets_triage_portal.sql','005_ticket_activity.sql','006_relations_pulse.sql','007_intelligence.sql'])
+  for(const file of ['001_init.sql','002_frontend_compat.sql','003_auth.sql','004_assets_triage_portal.sql','005_ticket_activity.sql','006_relations_pulse.sql','007_intelligence.sql','008_sla.sql'])
     await pool.query(await readFile('sql/'+file,'utf8'));
   const run=randomBytes(8).toString('hex'),accounts={};
   for(const [key,role,level] of [['requester','Solicitante',null],['other','Solicitante',null],

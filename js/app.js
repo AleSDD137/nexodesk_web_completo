@@ -40,7 +40,7 @@ const initialTickets = [
 let tickets = window.NexoAuth.sessionMode==='api'?[]:loadTickets();
 let currentView = "dashboard";
 let portalSection = 'home';
-const viewNames=['dashboard','tickets','procesos','reportes','configuracion','usuarios','pulse','assets','portal','relaciones','intelligence','triage','cuenta'];
+const viewNames=['dashboard','tickets','procesos','reportes','configuracion','usuarios','pulse','assets','portal','relaciones','intelligence','triage','cuenta','sla'];
 function navigate(route, {replace=false} = {}) {
   const section=String(route).startsWith('portal-')?String(route).slice(7):'home';
   const requested=String(route).startsWith('portal-')?'portal':route;
@@ -88,8 +88,10 @@ function loadTickets() {
 }
 function saveTickets() {
   if (window.NexoBridge?.isServer()) { window.NexoBridge.save(tickets); window.dispatchEvent(new CustomEvent("nexodesk:tickets-changed")); return; }
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tickets)); window.dispatchEvent(new CustomEvent("nexodesk:tickets-changed")); }
-  catch (error) { showToast("No se pudieron guardar los cambios en este navegador."); }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tickets));
+    try {window.NexoSlaData?.onDemoTicketsSaved(tickets);} catch {showToast('Ticket guardado; no se pudo actualizar SLA local.');}
+    window.dispatchEvent(new CustomEvent("nexodesk:tickets-changed")); return true; }
+  catch (error) { showToast("No se pudieron guardar los cambios en este navegador."); return false; }
 }
 function initials(name) {
   if (!name || name === "Sin asignar") return "?";
@@ -129,6 +131,7 @@ function renderTable() {
 }
 function renderAlternate() {
  const view=document.querySelector("#alternateView");
+ if(currentView==="sla"){window.NexoSla.render({tickets,users,openTicket,showToast},view);return;}
  if(currentView==="relaciones"){window.NexoV13.render({tickets,users,openTicket,showToast,render});return;}
  if(currentView==="intelligence"){window.NexoIntelligence.render({tickets,openTicket,showToast});return;}
  if(currentView==="triage"){window.NexoV15.render({tickets,users,openTicket,showToast,saveTickets,render});return;}
@@ -170,7 +173,7 @@ function render() {
   document.querySelector("#boardSection").classList.toggle("hidden", !isDashboard);
   document.querySelector(".stats-grid").classList.toggle("hidden", !isDashboard);
   document.querySelector("#alternateView").classList.toggle("hidden", isDashboard);
-  document.querySelector("#pageTitle").textContent = ({dashboard:"Panel de tickets",tickets:"Gestión de tickets",procesos:"Procesos de atención",reportes:"Reportes y métricas",configuracion:"Configuración",usuarios:"Usuarios y técnicos",pulse:"Pulse · Centro de operaciones",assets:"Assets · Inventario IT",portal:window.NexoAuth.isSelfService()?"Mi Portal":"Portal · Autoservicio",cuenta:"Mi cuenta",relaciones:"Relaciones · Mapa IT",intelligence:"Intelligence · Análisis de tickets",triage:"Triage · Clasificación y escalamiento"})[currentView];
+  document.querySelector("#pageTitle").textContent = ({dashboard:"Panel de tickets",tickets:"Gestión de tickets",procesos:"Procesos de atención",reportes:"Reportes y métricas",sla:"SLA · Plazos y alertas",configuracion:"Configuración",usuarios:"Usuarios y técnicos",pulse:"Pulse · Centro de operaciones",assets:"Assets · Inventario IT",portal:window.NexoAuth.isSelfService()?"Mi Portal":"Portal · Autoservicio",cuenta:"Mi cuenta",relaciones:"Relaciones · Mapa IT",intelligence:"Intelligence · Análisis de tickets",triage:"Triage · Clasificación y escalamiento"})[currentView];
   document.querySelectorAll('.nav-item').forEach(button=>{
     const active=button.dataset.portalSection?currentView==='portal'&&portalSection===button.dataset.portalSection:button.dataset.view===currentView;
     button.classList.toggle('active',active);
@@ -258,7 +261,9 @@ async function openTicket(id) {
     }
     ticket.comments??=[];
     ticket.comments.push({author:window.NexoAuth.user?.name||demoSession?.name||"Usuario demo",date:new Date().toLocaleString("es-AR"),text:message});
-    saveTickets();openTicket(ticket.id);showToast("Comentario enviado.");
+    if(!saveTickets()){ticket.comments.pop();return;}
+    try {window.NexoSlaData?.onDemoPublicComment(ticket.id);} catch {showToast('Comentario guardado; no se pudo actualizar el seguimiento SLA local.');}
+    openTicket(ticket.id);showToast("Comentario enviado.");
   });
   const dialog=document.querySelector("#detailDialog");if(!dialog.open)dialog.showModal();
   window.NexoTicketActivity?.mount({ticketId:ticket.id,root:detail.querySelector('#ticketActivity'),dialog});
