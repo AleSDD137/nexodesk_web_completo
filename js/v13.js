@@ -1,86 +1,48 @@
-/* NEXODESK V1.3 · Relaciones IT. Solo frontend / almacenamiento local de demo. */
-(() => {
-  'use strict';
-  const EXTRA_KEY='nexodesk-demo-asset-links-v13';
-  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const norm=v=>String(v??'').trim().replace(/\s+/g,' ').toLocaleLowerCase('es-AR');
-  const getExtras=()=>{try{const x=JSON.parse(localStorage.getItem(EXTRA_KEY)||'{}');return x&&typeof x==='object'&&!Array.isArray(x)?x:{};}catch{return {};}};
-  const setExtras=x=>{try{localStorage.setItem(EXTRA_KEY,JSON.stringify(x));return true;}catch{return false;}};
-  const getAssets=()=>window.NexoV12?.assets?.()||[];
-  const getLinks=(asset,extras)=>[...new Set([asset.ticketId,...(Array.isArray(extras[asset.id])?extras[asset.id]:[])].filter(x=>x!==null&&x!==''&&x!==undefined).map(String))];
-  const filterKinds=['Todos','Usuarios','Equipos','Tickets'];
-  let state={search:'',kind:'Todos',selection:null,showClosed:true};
-  let activeCtx=null;
-  const k=(kind,id)=>kind+':'+id;
-  function model(ctx){
-    const assets=getAssets(),extras=getExtras(),tickets=ctx.tickets||[],users=ctx.users||[];
-    const nodes=new Map(),edges=[];
-    const put=(kind,id,label,sub,meta={})=>{const key=k(kind,id);if(!nodes.has(key))nodes.set(key,{key,id:String(id),kind,label:String(label),sub:String(sub||''),meta});return key;};
-    const edge=(a,b,type)=>{if(a===b)return;if(!edges.some(e=>e.a===a&&e.b===b&&e.type===type))edges.push({a,b,type});};
-    const nameKey=name=>norm(name)&&norm(name)!=='sin asignar'?put('usuario',norm(name),name,'Persona relacionada'):null;
-    for(const u of users){if(!u.active)continue;nameKey(u.name);}
-    for(const a of assets){const ak=put('equipo',a.id,a.brand,a.id+' · '+a.state,{asset:a});const owner=nameKey(a.owner);if(owner)edge(owner,ak,'Asignado a');}
-    for(const t of tickets){const tk=put('ticket',t.id,'#'+t.id+' · '+t.title,t.status+' · '+t.priority,{ticket:t});const requester=nameKey(t.requester);if(requester)edge(requester,tk,'Solicitado por');const assignee=nameKey(t.assignee);if(assignee)edge(assignee,tk,'Atendido por');}
-    for(const a of assets){for(const tid of getLinks(a,extras)){if(nodes.has(k('ticket',tid)))edge(k('equipo',a.id),k('ticket',tid),'Vínculo confirmado');}}
-    return {nodes,edges,assets,tickets,extras};
-  }
-  const assetTickets=(m,id)=>m.edges.filter(e=>e.type==='Vínculo confirmado'&&e.a===k('equipo',id)).map(e=>m.nodes.get(e.b)).filter(Boolean);
-  function filtered(m){
-    const allowed=new Set([...m.nodes.values()].filter(n=>state.showClosed||n.kind!=='ticket'||n.meta.ticket?.status!=='Cerrado').map(n=>n.key));
-    let keys=new Set(allowed);
-    if(state.search.trim()){const q=norm(state.search),matches=new Set([...m.nodes.values()].filter(n=>allowed.has(n.key)&&norm([n.label,n.sub,n.id,n.meta.asset?.serial,n.meta.asset?.owner,n.meta.asset?.location,n.meta.ticket?.requester,n.meta.ticket?.assignee].join(' ')).includes(q)).map(n=>n.key));keys=new Set(matches);for(const e of m.edges){if(matches.has(e.a)&&allowed.has(e.b))keys.add(e.b);if(matches.has(e.b)&&allowed.has(e.a))keys.add(e.a);}}
-    if(state.kind!=='Todos'){const kind={Usuarios:'usuario',Equipos:'equipo',Tickets:'ticket'}[state.kind];const matches=new Set([...keys].filter(key=>m.nodes.get(key)?.kind===kind));if(matches.size){for(const e of m.edges){if(matches.has(e.a)&&allowed.has(e.b))matches.add(e.b);if(matches.has(e.b)&&allowed.has(e.a))matches.add(e.a);}keys=matches;}else keys=new Set();}
-    return {nodes:[...keys].map(key=>m.nodes.get(key)).filter(Boolean),edges:m.edges.filter(e=>keys.has(e.a)&&keys.has(e.b))};
-  }
-  function layout(graph){
-    const groups={usuario:[],equipo:[],ticket:[]};graph.nodes.forEach(n=>groups[n.kind].push(n));
-    for(const kind of Object.keys(groups))groups[kind].sort((a,b)=>a.label.localeCompare(b.label,'es'));
-    const biggest=Math.max(1,...Object.values(groups).map(a=>a.length));
-    const height=Math.max(380,biggest*77+74),width=1100,coordinates=new Map();
-    const positions={usuario:150,equipo:550,ticket:950};
-    Object.entries(groups).forEach(([kind,items])=>items.forEach((n,i)=>coordinates.set(n.key,{x:positions[kind],y:height/2+(i-(items.length-1)/2)*77})));
-    return {coordinates,width,height,groups};
-  }
-  function graphSvg(graph){
-    if(!graph.nodes.length)return '<div class="rel-empty">Sin resultados. Probá otro filtro o agregá un activo/ticket.</div>';
-    const {coordinates,width,height}=layout(graph);
-    const lines=graph.edges.map(e=>{const a=coordinates.get(e.a),b=coordinates.get(e.b);if(!a||!b)return '';const confirmed=e.type==='Vínculo confirmado';return `<path d="M ${a.x} ${a.y} C ${(a.x+b.x)/2} ${a.y}, ${(a.x+b.x)/2} ${b.y}, ${b.x} ${b.y}" class="rel-edge ${confirmed?'rel-confirmed':''}" aria-label="${esc(e.type)}"><title>${esc(e.type)}</title></path>`;}).join('');
-    const icons={usuario:'U',equipo:'E',ticket:'T'};
-    const elems=graph.nodes.map(n=>{const p=coordinates.get(n.key);const selected=state.selection===n.key;const label=n.label.length>32?n.label.slice(0,29)+'…':n.label;return `<g class="rel-node rel-${n.kind} ${selected?'is-selected':''}" data-node="${esc(n.key)}" role="button" tabindex="0" aria-label="Ver ${esc(n.kind)} ${esc(n.label)}" transform="translate(${p.x},${p.y})"><rect x="-133" y="-28" width="266" height="56" rx="12"/><circle cx="-109" cy="0" r="15"/><text x="-109" y="4" class="rel-icon" text-anchor="middle">${icons[n.kind]}</text><text x="-85" y="-3" class="rel-label">${esc(label)}</text><text x="-85" y="13" class="rel-sub">${esc(n.sub.length>38?n.sub.slice(0,35)+'…':n.sub)}</text><title>${esc(n.label)}</title></g>`;}).join('');
-    return `<svg class="rel-svg" viewBox="0 0 ${width} ${height}" style="min-width:900px;min-height:${Math.min(height,700)}px" role="group" aria-label="Diagrama de relaciones de usuarios, equipos y tickets"><g>${lines}</g><g>${elems}</g></svg>`;
-  }
-  function detail(m,ctx){
-    const node=m.nodes.get(state.selection);if(!node)return '<div class="rel-placeholder"><span>◎</span><h3>Explorá las relaciones</h3><p>Seleccioná un nodo del mapa para ver información, conexiones y acciones.</p></div>';
-    const connected=m.edges.filter(e=>e.a===node.key||e.b===node.key).map(e=>({edge:e,other:m.nodes.get(e.a===node.key?e.b:e.a)})).filter(x=>x.other);
-    const basics=node.kind==='equipo'?`<dl><dt>Código</dt><dd>${esc(node.id)}</dd><dt>Serie demo</dt><dd>${esc(node.meta.asset.serial)}</dd><dt>Ubicación</dt><dd>${esc(node.meta.asset.location)}</dd><dt>Estado</dt><dd>${esc(node.meta.asset.state)}</dd></dl>`:node.kind==='ticket'?`<dl><dt>Prioridad</dt><dd>${esc(node.meta.ticket.priority)}</dd><dt>Estado</dt><dd>${esc(node.meta.ticket.status)}</dd><dt>Solicitante</dt><dd>${esc(node.meta.ticket.requester)}</dd><dt>Responsable</dt><dd>${esc(node.meta.ticket.assignee)}</dd></dl>`:'';
-    const related=connected.map(({edge,other})=>`<button type="button" class="rel-related" data-select-node="${esc(other.key)}"><span><small>${esc(edge.type)} · ${esc(other.kind)}</small><b>${esc(other.label)}</b></span><span>↗</span></button>`).join('')||'<p class="rel-note">Todavía no hay conexiones para este elemento.</p>';
-    const attached=node.kind==='equipo'?assetTickets(m,node.id):[];
-    const choices=node.kind==='equipo'?m.tickets.filter(t=>!getLinks(node.meta.asset,m.extras).includes(String(t.id))).map(t=>`<option value="${esc(t.id)}">#${esc(t.id)} · ${esc(t.title)}</option>`).join(''):'';
-    return `<div class="rel-detail-header"><span class="rel-kicker">${esc(node.kind.toUpperCase())}</span><h3>${esc(node.label)}</h3><p>${esc(node.sub)}</p></div>${basics}<h4>Conexiones (${connected.length})</h4><div class="rel-related-list">${related}</div>${node.kind==='ticket'?`<button type="button" class="nx-cta rel-action" data-open-ticket="${esc(node.id)}">Abrir ticket #${esc(node.id)} ↗</button>`:''}${node.kind==='equipo'?`<div class="rel-link-form"><h4>Vincular otro ticket</h4><p class="rel-note">Vínculos confirmados manualmente en esta demo: ${attached.length}. Un equipo con 2 o más tickets tiene incidentes repetidos registrados.</p>${choices?`<form id="relAttachForm"><select name="ticket" required aria-label="Seleccionar ticket"><option value="">Elegí un ticket...</option>${choices}</select><button class="nx-cta" type="submit">Vincular</button></form>`:'<p class="rel-note">Todos los tickets disponibles están vinculados.</p>'}${attached.length?`<h4>Tickets vinculados</h4>${attached.map(t=>`<div class="rel-attached"><span>#${esc(t.id)} · ${esc(t.meta.ticket.title)}</span>${String(node.meta.asset.ticketId)===t.id?'<small>Vínculo original · editar en Assets</small>':`<button class="rel-remove" data-unlink="${esc(t.id)}">Quitar</button>`}</div>`).join('')}`:''}</div>`:''}`;
-  }
-  function paint(ctx){
-    const root=document.querySelector('#alternateView');if(!root)return;
-    const m=model(ctx),graph=filtered(m);
-    if(state.selection&&!m.nodes.has(state.selection))state.selection=null;
-    const repeats=m.assets.map(a=>({asset:a,count:assetTickets(m,a.id).length})).filter(x=>x.count>=2).sort((a,b)=>b.count-a.count);
-    const without=m.assets.filter(a=>assetTickets(m,a.id).length===0).length;
-    root.innerHTML=`<section class="rel-hero"><div><span class="rel-kicker">NEXODESK V1.3 · MAPA DE RELACIONES</span><h2>Conectá los puntos. Encontrá la causa.</h2><p>Visualizá vínculos entre personas, dispositivos y solicitudes. Identificá equipos con múltiples tickets relacionados, sin salir del dashboard.</p></div><span class="rel-hero-ornament" aria-hidden="true">⬡</span></section>
-    <div class="rel-metrics"><article><span>Usuarios relacionados</span><strong>${[...m.nodes.values()].filter(n=>n.kind==='usuario').length}</strong></article><article><span>Equipos</span><strong>${m.assets.length}</strong></article><article><span>Tickets</span><strong>${m.tickets.length}</strong></article><article class="rel-alert"><span>Equipos con 2+ tickets</span><strong>${repeats.length}</strong></article></div>
-    <section class="rel-surface"><div class="rel-toolbar"><label>Buscar conexiones<input id="relSearch" type="search" placeholder="Usuario, ticket, equipo, serie..." value="${esc(state.search)}" autocomplete="off"></label><label>Explorar<select id="relKind">${filterKinds.map(v=>`<option ${state.kind===v?'selected':''}>${v}</option>`).join('')}</select></label><label class="rel-check"><input id="relShowClosed" type="checkbox" ${state.showClosed?'checked':''}> Mostrar tickets cerrados</label><button type="button" class="rel-reset" id="relReset">Limpiar filtros</button></div>
-    <div class="rel-workspace"><section class="rel-canvas-wrap"><div class="rel-column-hints"><span>PERSONAS</span><span>DISPOSITIVOS</span><span>TICKETS</span></div><div class="rel-canvas" id="relCanvas">${graphSvg(graph)}</div><p class="rel-legend"><span class="rel-line-strong"></span> Relación explícita de activo–ticket <span class="rel-line-soft"></span> Relación por coincidencia exacta de nombre</p><p class="rel-note">La ubicación de nodos es ilustrativa. No se infieren relaciones de equipos a partir de coincidencias de texto: esos vínculos se registran manualmente.</p></section><aside class="rel-inspector" id="relInspector">${detail(m,ctx)}</aside></div></section>
-    <section class="rel-insights"><div class="rel-insight-title"><h3>Dispositivos con incidentes repetidos</h3><span>${repeats.length} detectados · ${without} sin ticket vinculado</span></div>${repeats.length?repeats.map(({asset,count})=>`<button type="button" data-select-node="${esc(k('equipo',asset.id))}" class="rel-issue"><span class="rel-issue-count">${count}</span><span><b>${esc(asset.brand)}</b><small>${esc(asset.id)} · ${esc(asset.owner)} · ${esc(asset.location)}</small></span><span class="rel-view">Ver conexiones →</span></button>`).join(''):'<div class="rel-no-repeats">Aún no hay equipos con dos o más tickets vinculados. Seleccioná un equipo y vinculá otro ticket para probar esta función.</div>'}</section>
-    <p class="rel-disclaimer">Prototipo local: las relaciones de personas se forman por coincidencias exactas de nombre, no por ID de identidad. Antes del backend, no representa un inventario corporativo validado.</p>`;
-    root.querySelector('#relSearch').addEventListener('input',e=>{const val=e.target.value;state.search=val;paint(ctx);const el=root.querySelector('#relSearch');el.focus();el.setSelectionRange(val.length,val.length);});
-    root.querySelector('#relKind').addEventListener('change',e=>{state.kind=e.target.value;paint(ctx);});
-    root.querySelector('#relShowClosed').addEventListener('change',e=>{state.showClosed=e.target.checked;paint(ctx);});
-    root.querySelector('#relReset').addEventListener('click',()=>{state.search='';state.kind='Todos';state.showClosed=true;paint(ctx);});
-    root.querySelectorAll('[data-node],[data-select-node]').forEach(el=>{
-      const pick=()=>{state.selection=el.dataset.node||el.dataset.selectNode;paint(ctx);};el.addEventListener('click',pick);if(el.hasAttribute('tabindex'))el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick();}});
-    });
-    root.querySelector('[data-open-ticket]')?.addEventListener('click',e=>ctx.openTicket(e.currentTarget.dataset.openTicket));
-    root.querySelector('#relAttachForm')?.addEventListener('submit',e=>{e.preventDefault();const node=m.nodes.get(state.selection);if(!node||node.kind!=='equipo')return;const id=String(new FormData(e.currentTarget).get('ticket'));if(!m.tickets.some(t=>String(t.id)===id))return;const extras=getExtras(),cur=getLinks(node.meta.asset,extras);if(cur.includes(id))return;extras[node.id]=[...new Set([...(Array.isArray(extras[node.id])?extras[node.id]:[]).map(String),id])];if(!setExtras(extras)){ctx.showToast('No se pudo guardar el vínculo.');return;}ctx.showToast(`Ticket #${id} relacionado con ${node.id}.`);paint(ctx);});
-    root.querySelectorAll('[data-unlink]').forEach(el=>el.addEventListener('click',()=>{const node=m.nodes.get(state.selection),id=el.dataset.unlink;if(!node||node.kind!=='equipo')return;const extras=getExtras();extras[node.id]=(extras[node.id]||[]).filter(x=>String(x)!==id);if(!setExtras(extras)){ctx.showToast('No se pudo guardar el cambio.');return;}ctx.showToast('Vínculo eliminado.');paint(ctx);}));
-  }
-  window.NexoV13={render(ctx){activeCtx=ctx;paint(ctx);}};
-  window.addEventListener('storage',e=>{if(activeCtx&&[EXTRA_KEY,'nexodesk-demo-assets-v12'].includes(e.key)&&document.querySelector('.rel-surface'))paint(activeCtx);});
+/* Relaciones IT V2.5: una vista compartida, con vínculos explícitos por ID. */
+(()=>{'use strict';
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const states=new Map();let generation=0;
+const source=()=>window.NexoAuth?.source==='api'?'api':'demo';
+function render(ctx){
+ const root=document.querySelector('#alternateView');if(!root)return;
+ if(window.NexoAuth?.isSelfService?.())return;
+ const mode=source(),key=mode==='api'?`api:${window.NexoAuth.user.id}`:'demo',token=++generation;
+ if(!states.has(key))states.set(key,{assets:[],total:0,offset:0,query:'',detail:null,selected:null,ticketOffset:0,tickets:[],users:[],busy:false,error:'',notice:'',uncertain:false});
+ const s=states.get(key),data=window.NexoRelationsData.create(mode,ctx);
+ const live=()=>generation===token&&source()===mode&&root.isConnected&&!!document.querySelector('[data-view="relaciones"].active');
+ root.onclick=null;root.oninput=null;
+ root.innerHTML=`<div class="nx-workspace rel-surface" data-mode="${mode}"><section class="rel-hero"><div><span class="rel-kicker">RELACIONES IT · CONTEXTO DE SOPORTE</span><h2>Personas, equipos y tickets conectados.</h2><p>Consultá y administrá vínculos confirmados. Las cuentas se asocian por identificador, sin coincidencias automáticas de nombres.</p></div></section>
+ <div class="nx-module-status" role="status" data-rel-status><span></span><button class="nx-mini-btn" id="relRefresh">Actualizar relaciones</button></div>
+ <form class="rel-toolbar" id="relAssetSearch"><label>Buscar activos<input type="search" name="search" id="relSearch" placeholder="Serie, equipo o ubicación" value="${esc(s.query)}" maxlength="100"></label><button class="nx-mini-btn">Buscar</button></form>
+ <div class="rel-asset-list" id="relAssetList"></div><div class="rel-pagination"><button class="nx-mini-btn" id="relPrev">Anteriores</button><span id="relPage"></span><button class="nx-mini-btn" id="relNext">Siguientes</button></div>
+ <section class="rel-workspace"><div class="rel-canvas-wrap"><h3>Conexiones del activo seleccionado</h3><p class="rel-note">El gráfico muestra los tickets de la página actual y solo la cuenta vinculada explícitamente.</p><div class="rel-canvas" id="relGraph" tabindex="0" aria-label="Diagrama desplazable"></div></div><div class="rel-inspector" id="relInspector"></div></section></div>`;
+ function status(){if(!live())return;const box=root.querySelector('[data-rel-status]');box.dataset.state=s.error?'error':s.busy?'pending':'ready';box.querySelector('span').textContent=s.busy?'Consultando o guardando relaciones…':s.error||s.notice||(mode==='api'?'API + PostgreSQL · Vínculos confirmados por el servidor.':'Demo Local · Datos exclusivos de este navegador.');root.querySelectorAll('button,input,select').forEach(e=>e.disabled=s.busy||(s.uncertain&&e.closest('[data-rel-write]')));root.querySelector('#relPrev').disabled=s.busy||s.offset===0;root.querySelector('#relNext').disabled=s.busy||s.offset+20>=s.total;if(s.detail){root.querySelector('#relTicketsPrev').disabled=s.busy||s.ticketOffset===0;root.querySelector('#relTicketsNext').disabled=s.busy||s.ticketOffset+50>=s.detail.total;}}
+ function settle(){s.busy=false;if(live())status();else if(source()===mode&&document.querySelector('[data-view="relaciones"].active'))render(ctx);}
+ function list(){if(!live())return;root.querySelector('#relAssetList').innerHTML=s.assets.map(a=>`<button class="rel-related" data-asset="${esc(a.id)}" aria-pressed="${String(a.id)===String(s.selected)}"><span><b>${esc(a.brand)}</b><small>${esc(a.serial)} · ${esc(a.location)} · ${esc(a.linkedCount)} ticket(s)</small></span></button>`).join('')||'<p class="rel-empty">No hay activos para esta búsqueda.</p>';root.querySelector('#relPage').textContent=`${s.assets.length} de ${s.total} activos · página ${Math.floor(s.offset/20)+1}`;root.querySelectorAll('[data-asset]').forEach(b=>b.onclick=()=>void select(b.dataset.asset));}
+ function graph(d){const a=d.asset,owner=d.ownerUser,nodes=[...(owner?[{x:150,y:100,kind:'usuario',id:owner.id,title:owner.name,sub:`Cuenta #${owner.id}`}]:[]),{x:550,y:100,kind:'equipo',id:a.id,title:a.brand,sub:a.serial},...d.tickets.map((t,i)=>({x:950,y:70+i*78,kind:'ticket',id:t.id,title:`#${t.id} · ${t.title}`,sub:t.primary?'Vínculo principal':'Vínculo adicional'}))];const h=Math.max(300,d.tickets.length*78+80);return `<svg class="rel-svg" viewBox="0 0 1120 ${h}" role="group" aria-label="Cuentas, activo y tickets vinculados" style="min-width:900px;min-height:300px">${nodes.filter(n=>n.kind!=='equipo').map(n=>`<path class="rel-edge rel-confirmed" d="M550 100 C750 100,750 ${n.y},${n.x} ${n.y}"/>`).join('')}${nodes.map(n=>`<g class="rel-node rel-${n.kind}" transform="translate(${n.x},${n.y})"><rect x="-133" y="-28" width="266" height="56" rx="12"/><text x="-120" y="-3" class="rel-label">${esc(n.title.slice(0,31))}</text><text x="-120" y="15" class="rel-sub">${esc(n.sub)}</text><title>${esc(n.title)}</title></g>`).join('')}</svg>`;}
+ function detail(){if(!live())return;const el=root.querySelector('#relInspector');if(!s.detail){el.innerHTML='<h3>Seleccioná un activo</h3><p class="rel-note">Su información y sus vínculos aparecerán aquí.</p>';root.querySelector('#relGraph').innerHTML='';return;}const d=s.detail,a=d.asset;
+ root.querySelector('#relGraph').innerHTML=graph(d);
+ el.innerHTML=`<h3>${esc(a.brand)}</h3><dl><dt>Serie</dt><dd>${esc(a.serial)}</dd><dt>Ubicación</dt><dd>${esc(a.location)}</dd><dt>Estado</dt><dd>${esc(a.state)}</dd><dt>Responsable textual</dt><dd>${esc(a.owner)}</dd><dt>Cuenta verificada</dt><dd>${d.ownerUser?`${esc(d.ownerUser.name)} · #${esc(d.ownerUser.id)}`:'Sin vinculación explícita'}</dd></dl><button class="nx-mini-btn" id="relOpenAsset">Abrir ficha del activo</button>
+ <h4>Tickets vinculados (${d.total})</h4>${d.tickets.map(t=>`<div class="rel-attached"><button class="nx-text-btn" data-open-ticket="${esc(t.id)}">#${esc(t.id)} · ${esc(t.title)}</button><span>${esc(t.status)}</span>${t.primary?'<small>Principal · editar en Assets</small>':`<button class="rel-remove" data-unlink="${esc(t.id)}" data-rel-write>Quitar vínculo</button>`}</div>`).join('')||'<p class="rel-note">Sin tickets vinculados.</p>'}<div class="rel-pagination"><button class="nx-mini-btn" id="relTicketsPrev">Anteriores</button><span>${d.tickets.length} de ${d.total} tickets</span><button class="nx-mini-btn" id="relTicketsNext">Siguientes</button></div>
+ <form class="rel-link-form" id="relTicketSearch"><h4>Vincular otro ticket</h4><label>Buscar por ID o asunto<input name="search" type="search" maxlength="100"></label><button class="nx-mini-btn">Buscar tickets</button></form><form class="rel-link-form" id="relLinkForm" data-rel-write><label>Ticket<select name="ticketId" required>${s.tickets.map(t=>`<option value="${esc(t.id)}">#${esc(t.id)} · ${esc(t.title)}</option>`).join('')}</select></label><button class="nx-mini-btn">Confirmar vínculo</button></form><p class="rel-note">Hasta 20 candidatos. Refiná la búsqueda para encontrar otro ticket.</p>
+ <form class="rel-link-form" id="relUserSearch"><h4>Asociar cuenta registrada</h4><label>Buscar usuario por nombre o ID<input name="search" type="search" maxlength="100"></label><button class="nx-mini-btn">Buscar usuarios</button></form><form class="rel-link-form" id="relOwnerForm" data-rel-write><label>Cuenta<select name="userId"><option value="">Quitar asociación formal</option>${s.users.map(u=>`<option value="${esc(u.id)}">#${esc(u.id)} · ${esc(u.name)} · ${esc(u.role)}</option>`).join('')}</select></label><button class="nx-mini-btn">Confirmar asociación</button></form><p class="rel-note">Hasta 20 candidatos. La asociación no reemplaza el responsable textual ni se deduce por su nombre.</p>`;
+ el.querySelector('#relOpenAsset').onclick=()=>window.dispatchEvent(new CustomEvent('nexodesk:open-asset',{detail:a.id}));
+ el.querySelectorAll('[data-open-ticket]').forEach(b=>b.onclick=()=>ctx.openTicket(b.dataset.openTicket));
+ el.querySelectorAll('[data-unlink]').forEach(b=>b.onclick=()=>{if(confirm('¿Quitar este vínculo adicional?'))void mutate(()=>data.unlink(a.id,b.dataset.unlink));});
+ el.querySelector('#relTicketsPrev').disabled=s.ticketOffset===0;el.querySelector('#relTicketsNext').disabled=s.ticketOffset+50>=d.total;
+ el.querySelector('#relTicketsPrev').onclick=()=>{s.ticketOffset=Math.max(0,s.ticketOffset-50);void select(a.id,false);};el.querySelector('#relTicketsNext').onclick=()=>{s.ticketOffset+=50;void select(a.id,false);};
+ el.querySelector('#relTicketSearch').onsubmit=e=>{e.preventDefault();void lookup('tickets',String(new FormData(e.target).get('search')));};
+ el.querySelector('#relUserSearch').onsubmit=e=>{e.preventDefault();void lookup('users',String(new FormData(e.target).get('search')));};
+ el.querySelector('#relLinkForm').onsubmit=e=>{e.preventDefault();const id=new FormData(e.target).get('ticketId');if(id)void mutate(()=>data.link(a.id,id));};
+ el.querySelector('#relOwnerForm').onsubmit=e=>{e.preventDefault();const id=new FormData(e.target).get('userId');if(confirm('¿Confirmar la asociación explícita de esta cuenta?'))void mutate(()=>data.setOwner(a.id,id||null));};
+ }
+ async function lookup(kind,search){if(s.busy)return;s.busy=true;s.error='';status();try{const r=await (kind==='tickets'?data.searchTickets({search,limit:20}):data.searchUsers({search,limit:20}));if(!live())return;s[kind]=r.data;detail();}catch(e){if(live())s.error=e.message;}finally{settle();}}
+ async function select(id,reset=true){if(s.busy)return;if(reset)s.ticketOffset=0;s.selected=id;s.busy=true;s.error='';status();try{const d=await data.getAsset(id,{limit:50,offset:s.ticketOffset});if(!live())return;s.detail=d;s.tickets=[];s.users=[];detail();list();}catch(e){if(live()){s.error=e.message;s.detail=null;detail();}}finally{settle();}}
+ async function load(){if(s.busy)return;s.busy=true;s.error='';status();try{const r=await data.listAssets({search:s.query,limit:20,offset:s.offset});if(!live())return;s.assets=r.data;s.total=r.total;s.uncertain=false;s.detail=null;list();detail();}catch(e){if(live())s.error=e.message;}finally{settle();}if(live()&&!s.error&&s.assets.length)await select(s.assets.find(a=>String(a.id)===String(s.selected))?.id??s.assets[0].id);}
+ async function mutate(operation){if(s.busy||s.uncertain)return;s.busy=true;s.error='';s.notice='';status();let ok=false;try{await operation();ok=true;s.notice='Operación confirmada.';}catch(e){if(live()){s.uncertain=mode==='api'&&(!e.status||e.status>=500);s.error=e.message+(s.uncertain?' Actualizá las relaciones antes de reintentar; no se guardó una copia local.':'');}}finally{settle();}if(ok&&live())await load();}
+ root.querySelector('#relAssetSearch').onsubmit=e=>{e.preventDefault();s.query=String(new FormData(e.target).get('search')).trim();s.offset=0;void load();};
+ root.querySelector('#relRefresh').onclick=()=>void load();root.querySelector('#relPrev').onclick=()=>{s.offset=Math.max(0,s.offset-20);void load();};root.querySelector('#relNext').onclick=()=>{s.offset+=20;void load();};
+ list();detail();status();void load();
+}
+window.NexoV13={render};
 })();
