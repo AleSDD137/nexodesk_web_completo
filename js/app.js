@@ -132,6 +132,7 @@ function renderTable() {
 function renderAlternate() {
  const view=document.querySelector("#alternateView");
  if(currentView==="inventory"){window.NexoInventory.render({tickets,users,openTicket,showToast},view);return;}
+ if(currentView==="reportes"){window.NexoReports.render({tickets,users,openTicket,showToast},view);return;}
  if(currentView==="sla"){window.NexoSla.render({tickets,users,openTicket,showToast},view);return;}
  if(currentView==="relaciones"){window.NexoV13.render({tickets,users,openTicket,showToast,render});return;}
  if(currentView==="intelligence"){window.NexoIntelligence.render({tickets,openTicket,showToast});return;}
@@ -157,8 +158,7 @@ function renderAlternate() {
  if(currentView==="procesos"){
  view.innerHTML=`<h2>Proceso de atención</h2><p class="muted">Etapas del ciclo de vida de los tickets.</p><div class="process-steps">${columns.map((c,i)=>`<div class="process-step"><span style="color:${c.color}">0${i+1}</span><strong>${c.key}</strong><small>${["Registro de la solicitud","Clasificación y asignación","Diagnóstico y resolución","Validación del solicitante","Cierre y documentación"][i]}</small></div>`).join("")}</div>`;return;
  }
- const byPriority=["Alta","Media","Baja"].map(priority=>({priority,count:tickets.filter(t=>t.priority===priority).length}));
- view.innerHTML=`<h2>Reportes y métricas</h2><p class="muted">Calculados con los tickets locales de esta demostración.</p><div class="report-grid"><div><small>Total</small><strong>${tickets.length}</strong></div><div><small>Abiertos</small><strong>${tickets.filter(t=>t.status!=="Cerrado").length}</strong></div><div><small>Alta prioridad</small><strong>${byPriority[0].count}</strong></div><div><small>Cerrados</small><strong>${tickets.filter(t=>t.status==="Cerrado").length}</strong></div></div><h3>Tickets por prioridad</h3><div class="bar-report">${byPriority.map(x=>`<div class="bar-row"><span>${x.priority}</span><div class="bar-track"><div class="bar-fill" style="width:${tickets.length?100*x.count/tickets.length:0}%"></div></div><strong>${x.count}</strong></div>`).join("")}</div>`;
+
 }
 function updateMetrics(){
  const cards=document.querySelectorAll(".stat-card strong");

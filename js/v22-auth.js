@@ -62,7 +62,7 @@
   function canAccessView(view){
     if(isSelfService())return ['portal','cuenta'].includes(view);
     if(source!=='api')return true;
-    return !limitedViews.includes(view) && (view!=='usuarios'||['Administrador','Coordinador'].includes(user?.role));
+    return !limitedViews.includes(view) && (!['usuarios','reportes'].includes(view)||['Administrador','Coordinador'].includes(user?.role));
   }
   function isRequester(){return source==='api' && user?.role==='Solicitante';}
   function canEdit(){return source!=='api'||(user && user.role!=='Solicitante');}

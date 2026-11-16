@@ -1,0 +1,15 @@
+/* V2.9, alcance exclusivo de Reportes. */
+.nx-reports-workspace{min-width:0}.nx-reports-workspace .nx-panel{margin-top:16px}.nx-reports-workspace .nx-reports-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0}.nx-reports-workspace label{display:grid;gap:7px;color:#c8dce8;font-size:12px}.nx-reports-workspace :is(input,select){width:100%;min-width:0;background:#0c1929;color:#edf7fc;border:1px solid #648497;border-radius:8px;padding:10px;font:inherit}.nx-reports-workspace input::placeholder{color:#b3c7d5;opacity:1}.nx-reports-workspace :is(button,input,select,.nx-table-wrap):focus-visible{outline:2px solid #59ded5;outline-offset:3px}.nx-reports-workspace .nx-reports-actions{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}.nx-reports-workspace .nx-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.nx-reports-workspace .nx-metrics span{color:#b6cbd8}.nx-reports-workspace .nx-metrics strong{font-size:29px;overflow-wrap:anywhere}.nx-reports-workspace .nx-table{min-width:300px}.nx-reports-workspace :is(td,p,dd){overflow-wrap:anywhere}.nx-reports-workspace dl{display:grid;gap:8px}.nx-reports-workspace dt{color:#c7deea}.nx-reports-workspace dd{margin:0 0 8px;color:#f0f8fe}.nx-reports-workspace button:disabled{opacity:1;background:#244152;color:#c0d4df;cursor:not-allowed}
+@media(max-width:768px){.nx-reports-workspace .nx-reports-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.nx-reports-workspace .nx-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:430px){.nx-reports-workspace .nx-reports-filters{grid-template-columns:minmax(0,1fr)}}
+@media print{body:has(.nx-reports-workspace) :is(.sidebar,.topbar,.page-heading,.nx-sync,#nxAuthNote,.app-footer){display:none}body:has(.nx-reports-workspace) .app-shell{display:block}body:has(.nx-reports-workspace) .main-content{padding:0}.nx-reports-workspace :is(.nx-reports-actions,.nx-reports-filters,[data-reports-status]){display:none}.nx-reports-workspace .nx-panel{break-inside:avoid}.nx-reports-workspace .nx-table-wrap{overflow:visible}.nx-reports-workspace .nx-table{min-width:0}}
+/* La impresión conserva contraste incluso con fondos deshabilitados. */
+@media print{
+ .nx-reports-workspace{background:white;color:#102536;padding:0;border:0}
+ .nx-reports-workspace :is(.nx-hero,.nx-panel,.nx-metrics article){background:white;color:#102536;border-color:#7d8b95;box-shadow:none}
+ .nx-reports-workspace :is(h2,h3,h4,p,span,strong,small,th,td,dt,dd,.nx-hint,.nx-kicker){color:#102536}
+ .nx-reports-workspace .nx-table{border-collapse:collapse;width:100%;table-layout:fixed}
+ .nx-reports-workspace :is(th,td){border-color:#7d8b95;white-space:normal;overflow-wrap:anywhere}
+ .nx-reports-workspace .nx-two-col{grid-template-columns:minmax(0,1fr)}
+ .nx-reports-workspace .nx-progress{display:none}
+}
