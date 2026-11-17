@@ -8,6 +8,7 @@ import { requestFields, requestView } from './portal-response.js';
 import { registerActivityRoutes } from './ticket-activity.js';
 import { registerPulseRoutes } from './pulse.js';
 import { registerRelationsRoutes } from './relations.js';
+import { registerSearchRoutes } from './search.js';
 import { registerReportRoutes } from './reports.js';
 import { registerInventoryRoutes } from './inventory.js';
 import { registerIntelligenceRoutes } from './intelligence.js';
@@ -238,6 +239,7 @@ registerIntelligenceRoutes(app);
 registerSlaRoutes(app);
 registerInventoryRoutes(app);
 registerReportRoutes(app);
+registerSearchRoutes(app);
 app.use((_req,res)=>res.status(404).json({error:'Ruta no encontrada'}));
 const errors:ErrorRequestHandler=(err:unknown,_req,res,_next)=>{
   if(err&&typeof err==='object'&&'type' in err&&err.type==='entity.too.large'){res.status(413).json({error:'La solicitud supera el tamaño permitido'});return;}

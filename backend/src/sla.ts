@@ -110,7 +110,8 @@ export function registerSlaRoutes(app:Express):void {
     WHEN s.resolved_at<=s.resolution_due_at THEN 'met' ELSE 'breached' END AS "resolutionState"
     FROM ticket_sla s JOIN tickets t ON t.id=s.ticket_id WHERE ${filter} ORDER BY s.resolution_due_at,t.id LIMIT $3 OFFSET $4`,
     [q.priority??null,q.status??null,q.limit,q.offset]);
-   return {data:data.rows,total:count.rows[0].total,limit:q.limit,offset:q.offset,scope:'Solo tickets con política SLA registrada; no se infiere historia anterior.'};
+   const coverage=(await client.query(`SELECT count(*) FILTER(WHERE s.ticket_id IS NULL)::int AS untracked FROM tickets t LEFT JOIN ticket_sla s ON s.ticket_id=t.id`)).rows[0];
+   return {data:data.rows,total:count.rows[0].total,coverage,limit:q.limit,offset:q.offset,scope:'Solo tickets con política SLA registrada; no se infiere historia anterior.'};
   });res.json(result);
  }));
  app.get('/api/sla/alerts',...staff,route(async(req,res)=>{

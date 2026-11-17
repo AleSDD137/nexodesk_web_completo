@@ -101,7 +101,7 @@ function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
 }
 function matchesFilters(ticket) {
-  const query = searchInput.value.trim().toLocaleLowerCase("es");
+  const query = ""; // Global search has its own read-only result panel.
   const priority = priorityFilter.value;
   const searchable = `${ticket.id} ${ticket.title} ${ticket.type} ${ticket.assignee} ${ticket.requester} ${ticket.status}`.toLocaleLowerCase("es");
   return (!query || searchable.includes(query)) && (priority === "all" || ticket.priority === priority);
@@ -145,7 +145,7 @@ function renderAlternate() {
  }
  if(currentView==="usuarios"){
  view.innerHTML=`<div class="section-heading"><div><h2>Usuarios y técnicos</h2><p class="muted">Directorio local de demostración, sin cuentas reales.</p></div></div>
- <div class="table-wrap"><table class="ticket-table"><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Acción</th></tr></thead><tbody>${users.map(u=>`<tr><td>${escapeHtml(u.name)}</td><td>${escapeHtml(u.email)}</td><td>${escapeHtml(u.role)}</td><td>${u.active?"Activo":"Inactivo"}</td><td><button class="link-button" data-toggle-user="${u.id}">${u.active?"Desactivar":"Activar"}</button></td></tr>`).join("")}</tbody></table></div>
+ <div class="table-wrap"><table class="ticket-table"><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Acción</th></tr></thead><tbody>${users.map(u=>`<tr data-user-id="${u.id}"><td>${escapeHtml(u.name)}</td><td>${escapeHtml(u.email)}</td><td>${escapeHtml(u.role)}</td><td>${u.active?"Activo":"Inactivo"}</td><td><button class="link-button" data-toggle-user="${u.id}">${u.active?"Desactivar":"Activar"}</button></td></tr>`).join("")}</tbody></table></div>
  <form id="userForm" class="inline-form"><h3>Agregar usuario de demostración</h3><div class="detail-grid"><label>Nombre<input name="name" required maxlength="80"></label><label>Correo<input name="email" type="email" required maxlength="120"></label><label>Rol<select name="role"><option>Solicitante</option><option>Técnico</option><option>Coordinador</option><option>Administrador</option></select></label></div><button class="primary-button">Agregar usuario</button></form>`;return;
  }
  if(currentView==="configuracion"){
@@ -301,7 +301,7 @@ window.addEventListener('nexodesk:open-asset',async event=>{
   catch(error){showToast(`No se pudo abrir el activo: ${error.message}`);}
 });
 window.addEventListener('hashchange',()=>navigate(location.hash.slice(1),{replace:true}));
-searchInput.addEventListener("input", render);
+window.NexoSearch.init({tickets:()=>tickets,users:()=>users,openTicket,openUser:id=>{navigate("usuarios");const focus=()=>{const row=document.querySelector(`[data-user-id="${Number(id)}"]`);if(row){row.tabIndex=-1;row.focus();row.scrollIntoView({block:"center"});return true;}};if(!focus()){const observer=new MutationObserver(()=>{if(focus())observer.disconnect();});observer.observe(document.querySelector("#alternateView"),{childList:true,subtree:true});setTimeout(()=>observer.disconnect(),5000);}}});
 priorityFilter.addEventListener("change", render);
 board.addEventListener("click", event => {
   const card = event.target.closest("[data-ticket-id]");
